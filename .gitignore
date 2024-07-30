@@ -1,0 +1,6 @@
+tuya_build_env
+t3_os/tuya_build
+CatalogKconfig
+
+__pycache__
+gen_files_list.txt

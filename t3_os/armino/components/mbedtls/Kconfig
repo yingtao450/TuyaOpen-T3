@@ -1,0 +1,6 @@
+#TODO add depens for CONFIG_HOST (bk7231u)
+menu "Mbedtls"
+	config MBEDTLS
+		bool "Enable Mbedtls"
+		default n
+endmenu

@@ -1,0 +1,28 @@
+menu "TUYA_SDK"
+    config TUYA_OS_ADAPTER
+        bool "Add tuya os adapter"
+        default n
+
+    config TUYA_APP_SOURCES
+        bool "Add tuya app"
+        default n
+
+    config TUYA_COMPONENTS
+        bool "Add tuya component"
+        default n
+
+    config APP_CLI_STATION
+        depends on TUYA_OS_ADAPTER
+        bool "Add tuya app cli station component"
+        default n
+
+    config APP_DEMO_QUICKSTAT
+        depends on TUYA_OS_ADAPTER
+        bool "Add tuya app demo quickstart component"
+        default n
+
+    config configUSE_RECURSIVE_MUTEXES
+        bool "configUSE_RECURSIVE_MUTEXES"
+        default y
+
+endmenu
