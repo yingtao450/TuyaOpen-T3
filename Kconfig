@@ -1,4 +1,9 @@
 menu "configure t3"
+
+    config PLATFORM_T3
+        bool
+        default y
+
     config OPERATING_SYSTEM
         int
         default 98

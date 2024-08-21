@@ -479,6 +479,12 @@ typedef uint16_t TUYA_PIN_FUNC_E;
 #define  TUYA_IIC1_SDA       0x3
 #define  TUYA_IIC2_SCL       0x4
 #define  TUYA_IIC2_SDA       0x5
+#define  TUYA_IIC3_SCL       0x6
+#define  TUYA_IIC3_SDA       0x7
+#define  TUYA_IIC4_SCL       0x8
+#define  TUYA_IIC4_SDA       0x9
+#define  TUYA_IIC5_SCL       0xA
+#define  TUYA_IIC5_SDA       0xB
 
 #define  TUYA_UART0_TX       0x100
 #define  TUYA_UART0_RX       0x101
