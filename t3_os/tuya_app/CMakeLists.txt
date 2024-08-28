@@ -2,7 +2,7 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
 
-set(EXTRA_COMPONENTS_DIRS $ENV{ARMINO_PATH}/../../tuyaos/tuyaos_adapter)
+set(EXTRA_COMPONENTS_DIRS $ENV{ARMINO_PATH}/../../tuyaos/tuyaos_adapter $ENV{ARMINO_PATH}/../extra_components)
 
 include($ENV{ARMINO_PATH}/tools/build_tools/cmake/project.cmake)
 project(app)

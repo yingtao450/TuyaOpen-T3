@@ -5,6 +5,7 @@
 #include "components/bluetooth/bk_ble_types.h"
 #include "common/bk_err.h"
 
+#include "components/bluetooth/bk_dm_bluetooth.h"
 
 #define TKL_DEBUG 1
 

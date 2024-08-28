@@ -25,6 +25,8 @@
 #include <driver/aon_rtc.h>
 #endif
 
+#include "components/bluetooth/bk_dm_bluetooth.h"
+
 #if CONFIG_SAVE_BOOT_TIME_POINT
 #include "boot.h"
 #endif
@@ -54,7 +56,7 @@ static TKL_SEM_HANDLE scanHandle = NULL;
 static SNIFFER_CALLBACK snif_cb = NULL;
 static WIFI_REV_MGNT_CB mgnt_recv_cb = NULL;
 static WIFI_EVENT_CB wifi_event_cb = NULL;
-static unsigned char wifi_lp_status = 0;
+// static unsigned char wifi_lp_status = 0;
 static unsigned char mgnt_cb_exist_flag = 0;
 static bool lp_mode = FALSE;
 static unsigned char first_set_flag = TRUE;
@@ -79,6 +81,11 @@ static void tkl_wifi_powersave_enable(void);
 extern void os_mem_dump(const char *title, unsigned char *data, uint32_t data_len);
 extern void _bk_rtc_wakeup_register(unsigned int rtc_time) ;
 extern void _bk_rtc_wakeup_unregister() ;
+
+extern void *tkl_system_memcpy(void* src, const void* dst, const size_t n);
+extern void *tkl_system_memset(void* src, int ch, const size_t n);
+
+extern void ap_set_default_netif(void);
 
 void static __fast_connect_ap_info_dump(char *tag, struct wlan_fast_connect_info *fci)
 {
@@ -153,11 +160,14 @@ OPERATE_RET tkl_wifi_init(WIFI_EVENT_CB cb)
  * @param[out]
  * @return  OPRT_OS_ADAPTER_OK: success  Other: fail
  */
-static void scan_cb(void *ctxt, unsigned char param)
+static bk_err_t scan_cb(void *arg, event_module_t event_module,
+		int event_id, void *event_data)
 {
     if(scanHandle) {
         tkl_semaphore_post(scanHandle);
     }
+
+    return BK_OK;
 }
 
 
@@ -286,7 +296,7 @@ OPERATE_RET tkl_wifi_scan_ap(const int8_t *ssid, AP_IF_S **ap_ary, uint32_t *num
 
     if(NULL == ssid)
     {
-        return tkl_wifi_all_ap_scan(ap_ary, num);
+        return tkl_wifi_all_ap_scan(ap_ary, (unsigned int *)num);
     }
 
     AP_IF_S *array = NULL;
@@ -471,11 +481,9 @@ OPERATE_RET tkl_wifi_start_ap(const WF_AP_CFG_IF_S *cfg)
         BK_LOG_ON_ERR(bk_wifi_ap_set_config(&wApConfig));
         BK_LOG_ON_ERR(bk_wifi_ap_start());
     }
-    ret = ap_set_default_netif();
-    if (ret) {
-        bk_printf("ap_set_default_netif error [%d] \r\n", ret);
-        ret = OPRT_COM_ERROR;
-    }
+    
+    ap_set_default_netif();
+
     return ret;
 }
 
@@ -565,7 +573,7 @@ static void check_frame_type(unsigned char *data, unsigned short len)
 }
 #endif
 
-static void _wf_sniffer_set_cb(unsigned char *data, int len, const wifi_frame_info_t *info)
+static bk_err_t _wf_sniffer_set_cb(const uint8_t *data, uint32_t len, const wifi_frame_info_t *info)
 {
 #if DEBUG_EZ_MODE
     check_frame_type(data, len);
@@ -574,6 +582,8 @@ static void _wf_sniffer_set_cb(unsigned char *data, int len, const wifi_frame_in
     if (NULL != snif_cb) {
         (*snif_cb)(data, len, info->rssi);
     }
+
+    return BK_OK;
 }
 
 /**
@@ -1247,7 +1257,7 @@ OPERATE_RET tkl_wifi_station_get_conn_ap_rssi(int8_t *rssi)
  */
 OPERATE_RET tkl_wifi_station_get_status(WF_STATION_STAT_E *stat)
 {
-    static unsigned char flag = FALSE;
+    // static unsigned char flag = FALSE;
     wifi_linkstate_reason_t info = {0};
 
     WF_WK_MD_E mode;

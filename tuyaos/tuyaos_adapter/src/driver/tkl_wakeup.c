@@ -6,6 +6,7 @@
  */
 
 #include "tkl_wakeup.h"
+#include <components/log.h>
 
 #define WAKEUP_SOURCE_CNT   2
 static TUYA_WAKEUP_SOURCE_BASE_CFG_T  *wakeup_source = NULL;

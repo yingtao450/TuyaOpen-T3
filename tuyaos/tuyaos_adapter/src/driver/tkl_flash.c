@@ -137,8 +137,8 @@ static unsigned int __uni_flash_is_protect_all(void)
 */
 OPERATE_RET tkl_flash_write(uint32_t addr, const uint8_t *src, uint32_t size)
 {
-    unsigned int protect_flag;
-    unsigned int param;
+    // unsigned int protect_flag;
+    // unsigned int param;
 
     if (NULL == src) {
         return OPRT_INVALID_PARM;
@@ -185,8 +185,8 @@ OPERATE_RET tkl_flash_erase(uint32_t addr, uint32_t size)
     unsigned int i = 0;
     unsigned int sector_addr;
     // DD_HANDLE flash_handle;
-    unsigned int  param;
-    unsigned int protect_flag;
+    // unsigned int  param;
+    // unsigned int protect_flag;
 
     /* TODO: need to consider whether to use locks at the TKL layer*/
     flash_lock();

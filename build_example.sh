@@ -19,14 +19,14 @@ OUTPUT_DIR=$6
 USER_CMD=$7
 TARGET_PLATFORM=bk7236
 
-echo APP_BIN_NAME=$APP_BIN_NAME
-echo APP_VERSION=$APP_VERSION
-echo USER_CMD=$USER_CMD
-echo LIBS_DIR=$LIBS_DIR
-echo LIBS=$LIBS
-echo OUTPUT_DIR=$OUTPUT_DIR
-echo HEADER_DIR=$HEADER_DIR
-echo TARGET_PLATFORM=$TARGET_PLATFORM
+# echo APP_BIN_NAME=$APP_BIN_NAME
+# echo APP_VERSION=$APP_VERSION
+# echo USER_CMD=$USER_CMD
+# echo LIBS_DIR=$LIBS_DIR
+# echo LIBS=$LIBS
+# echo OUTPUT_DIR=$OUTPUT_DIR
+# echo HEADER_DIR=$HEADER_DIR
+# echo TARGET_PLATFORM=$TARGET_PLATFORM
 
 USER_SW_VER=`echo $APP_VERSION | cut -d'-' -f1`
 
@@ -107,9 +107,8 @@ enable_python_env "tuya_build_env" || { echo "Failed to enable python virtual en
 export TUYA_APP_PATH=$APP_PATH
 export TUYA_APP_NAME=$APP_BIN_NAME
 
-p=$(pwd);p1=${p%%/board*};
-echo $p1
-export TUYA_PROJECT_DIR=$p1
+
+export TUYA_PROJECT_DIR=$(pwd)
 export TUYA_HEADER_DIR=$HEADER_DIR
 export TUYA_LIBS_DIR=$LIBS_DIR
 export TUYA_LIBS=$LIBS

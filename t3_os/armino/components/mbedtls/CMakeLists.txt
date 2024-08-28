@@ -133,6 +133,6 @@ armino_component_register(SRCS "${srcs}"
 
 if (NOT CONFIG_MBEDTLS_ACCELERATOR)
 unset(c_compile_options)
-list(APPEND c_compile_options "-DMBEDTLS_CONFIG_FILE=\"tls_config.h\"")
+# list(APPEND c_compile_options "-DMBEDTLS_CONFIG_FILE=\"tls_config.h\"")
 armino_build_set_property(C_COMPILE_OPTIONS "${c_compile_options}" APPEND)
 endif()

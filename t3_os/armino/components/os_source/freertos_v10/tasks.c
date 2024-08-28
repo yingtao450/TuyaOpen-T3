@@ -46,7 +46,7 @@
 // lwipopts.h条件包含需要放在#include "FreeRTOS.h"之后，宏 CONFIG_SYS_CPU0 依赖其
 // 包含的sdkconfig.h , FreeRTOS.h ---> FreeRTOSConfig.h ---> sdkconfig.h
 #if (CONFIG_SYS_CPU0 == 1)
-#include "lwipopts.h"
+#include "lwip/opt.h"
 #endif // CONFIG_SYS_CPU0 == 1
 // Modified by TUYA End
 

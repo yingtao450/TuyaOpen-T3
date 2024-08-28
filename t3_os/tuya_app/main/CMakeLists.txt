@@ -7,4 +7,5 @@ if (CONFIG_OVERRIDE_FLASH_PARTITION)
         vendor_flash.c
     )
 endif()
+
 armino_component_register(SRCS "${srcs}" INCLUDE_DIRS "${incs}")

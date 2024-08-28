@@ -326,12 +326,171 @@ void bk_set_jtag_mode(uint32_t cpu_id, uint32_t group_id) {
 #endif
 }
 
+
+
+#define OTP_FLASH_DATA_SIZE        1024
+#define OTP_FLASH_RFDATA_SIZE       512
+#define PARTITION_SIZE         (1 << 12) /* 4KB */
+
+#include "string.h"
+#include "bk_wifi_types.h"
+#include "flash_bypass.h"
+#include <common/bk_typedef.h>
+#include "driver/flash.h"
+#include <driver/flash_partition.h>
+#include <os/mem.h>
+#include <modules/wifi.h>
+
+extern void flash_lock(void);
+extern void flash_unlock(void);
+
+static void __read_otp_flash_rfcali_data(uint8_t *otp_data, uint16_t len)
+{
+    flash_bypass_otp_ctrl_t otp_op     = {0};
+    otp_op.otp_idx		= 1;  // "1 or 2 or 3"
+    otp_op.addr_offset  = 0;
+    otp_op.write_len 	= 0;
+    otp_op.write_buf	= NULL;
+    otp_op.read_len		= len;
+    otp_op.read_buf		= otp_data;
+
+    int ret = flash_bypass_otp_operation(FLASH_BYPASS_OTP_READ, &otp_op);
+	if (ret != BK_OK)
+		bk_printf("otp flash read failed\n");
+}
+
+static int __check_otp_flash_rfcali_data(uint8_t *otp_data, uint16_t len)
+{
+    struct txpwr_elem_st
+    {
+        UINT32 type;
+        UINT32 len;
+    } *head;
+
+    head = (struct txpwr_elem_st *)otp_data;
+    if (head->type != INFO_TLV_HEADER) {
+        bk_printf("otp flash data type error %x\n", head->type);
+        return -1;
+    }
+    return 0;
+}
+
+void backup_rfcali_data(void)
+{
+    uint32_t addr;
+    uint8_t *dst;
+    uint32_t size;
+
+    dst = os_malloc(OTP_FLASH_DATA_SIZE);
+    if (dst == NULL) {
+        bk_printf("malloc rfcali data failed\n");
+        return;
+    }
+
+    memset(dst, 0, OTP_FLASH_DATA_SIZE);
+
+    flash_bypass_otp_ctrl_t otp_op     = {0};
+    otp_op.otp_idx      = 1;  // "1 or 2 or 3"
+    otp_op.addr_offset  = 0;
+    otp_op.write_len	= 0;
+    otp_op.write_buf	= NULL;
+    otp_op.read_len		= OTP_FLASH_DATA_SIZE;
+    otp_op.read_buf		= dst;
+    int ret = flash_bypass_otp_operation(FLASH_BYPASS_OTP_READ, &otp_op);
+	if (ret != BK_OK) {
+        bk_printf("read otp flash failed\n");
+		if (dst)
+			os_free(dst);
+
+		return ;
+	}
+
+    /* TODO: need to consider whether to use locks at the TKL layer*/
+    flash_lock();
+
+	bk_logic_partition_t *pt = bk_flash_partition_get_info(BK_PARTITION_RF_FIRMWARE);
+    addr = pt->partition_start_addr;
+    size = OTP_FLASH_RFDATA_SIZE;
+	bk_flash_read_bytes(addr, (uint8_t *)dst, size);
+
+    /* TODO: need to consider whether to use locks at the TKL layer*/
+    flash_unlock();
+
+	memset(&otp_op, 0, sizeof(flash_bypass_otp_ctrl_t));
+    otp_op.otp_idx      = 1;  // "1 or 2 or 3"
+    otp_op.addr_offset  = 0;
+    otp_op.write_len	= OTP_FLASH_DATA_SIZE;
+    otp_op.write_buf	= dst;
+    otp_op.read_len		= 0;
+    otp_op.read_buf		= NULL;
+
+    ret = flash_bypass_otp_operation(FLASH_BYPASS_OTP_WRITE, &otp_op);
+	if (ret != BK_OK)
+        bk_printf("write otp flash failed\n");
+
+    if (dst)
+        os_free(dst);
+}
+
+static void __recovery_rfcali_data(uint8_t *otp_data, uint16_t len)
+{
+    uint32_t addr;
+
+	bk_logic_partition_t *pt = bk_flash_partition_get_info(BK_PARTITION_RF_FIRMWARE);
+    addr = pt->partition_start_addr;
+
+    /* TODO: need to consider whether to use locks at the TKL layer*/
+    flash_lock();
+
+    bk_flash_set_protect_type(FLASH_PROTECT_NONE);
+	bk_flash_erase_sector(addr);
+    bk_flash_write_bytes(addr, (const uint8_t *)otp_data, OTP_FLASH_RFDATA_SIZE);
+    bk_flash_set_protect_type(FLASH_UNPROTECT_LAST_BLOCK);
+
+    /* TODO: need to consider whether to use locks at the TKL layer*/
+    flash_unlock();
+
+	bk_printf("recovery rfcali data success\n");
+}
+static int user_recovery_rfcali_data(void)
+{
+	int stat = bk_wifi_manual_cal_rfcali_status();
+
+    if(stat == BK_OK) {
+		return 0;
+    }
+
+    bk_printf("[NOTE]: rfcali data isn't exist\n");
+
+    uint8_t *otp_data = os_malloc(OTP_FLASH_DATA_SIZE);
+    if(otp_data == NULL) {
+        bk_printf("malloc rfcali data failed\n");
+        return -1;
+    }
+    memset(otp_data, 0, OTP_FLASH_DATA_SIZE);
+    __read_otp_flash_rfcali_data(otp_data, OTP_FLASH_DATA_SIZE);
+
+    if (__check_otp_flash_rfcali_data(otp_data, OTP_FLASH_DATA_SIZE) < 0) {
+        bk_printf("check rfcali data failed\n");
+    } else {
+        bk_printf("check rfcali data success\n");
+        __recovery_rfcali_data(otp_data, OTP_FLASH_RFDATA_SIZE);
+    }
+    os_free(otp_data);
+
+    return 0;
+}
+
 static void user_app_thread( void *arg )
 {
 	rtos_user_app_waiting_for_launch();
 	/* add your user_main*/
 	os_printf("user app entry(0x%0x)\r\n", s_user_app_entry);
 	if(NULL != s_user_app_entry) {
+		bk_wdt_stop();
+
+		user_recovery_rfcali_data();
+
 		s_user_app_entry(0);
 	}
 

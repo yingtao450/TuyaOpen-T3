@@ -5,7 +5,7 @@ set(CMAKE_SYSTEM_PROCESSOR Linux)
 set(TOOLCHAIN_DIR "${PLATFORM_PATH}/../tools/gcc-arm-none-eabi-10.3-2021.10")
 set(TOOLCHAIN_PRE "arm-none-eabi-")
 
-message(STATUS "[TOP] BOARD_PATH: ${BOARD_PATH}")
+# message(STATUS "[TOP] BOARD_PATH: ${BOARD_PATH}")
 
 execute_process(COMMAND uname -s OUTPUT_VARIABLE OS_NAME ERROR_VARIABLE error)
 message(STATUS "OS: ${OS_NAME}")
