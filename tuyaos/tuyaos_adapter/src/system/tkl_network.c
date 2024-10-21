@@ -46,6 +46,8 @@ const NETWORK_ERRNO_TRANS_S TKL_ERRNOrans[] = {
     {EMSGSIZE, EMSGSIZE}
 };
 
+extern void bk_printf(const char *fmt, ...);
+
 /**
  * @brief 用于获取错误序号
  *
@@ -235,7 +237,7 @@ int tkl_net_socket_create(const TUYA_PROTOCOL_TYPE_E type)
         fd = socket(AF_INET, SOCK_DGRAM, 0);
     }
 
-    tkl_log_output("tkl_net_socket_create type(%d), fd(%d)!\r\n",type, fd);
+    bk_printf("tkl_net_socket_create type(%d), fd(%d)!\r\n",type, fd);
 
     return fd;
 }
@@ -443,7 +445,19 @@ TUYA_ERRNO tkl_net_recv(const int fd, void *buf, const uint32_t nbytes)
         }
     }
 
-    return recv(fd, buf, nbytes, 0);
+    int ret = 0;
+    ret = recv(fd,buf,nbytes,0);
+    if (ret <= 0) {
+        TUYA_ERRNO err = tkl_net_get_errno();
+        if (EWOULDBLOCK == err || \
+                EINTR == err || \
+                EAGAIN == err) {
+            tkl_system_sleep(10);
+            ret = recv(fd,buf,nbytes,0);
+        }
+    }
+
+    return ret;
 }
 
 /**
@@ -515,6 +529,16 @@ TUYA_ERRNO tkl_net_recvfrom(const int fd, \
     struct sockaddr_in sock_addr;
     socklen_t addr_len = sizeof(struct sockaddr_in);
     int ret = recvfrom(fd, buf, nbytes, 0, (struct sockaddr *)&sock_addr, &addr_len);
+    if (ret <= 0) {
+        TUYA_ERRNO err = tkl_net_get_errno();
+        if (EWOULDBLOCK == err || \
+                EINTR == err || \
+                EAGAIN == err) {
+            tkl_system_sleep(10);
+            ret = recvfrom(fd, buf, nbytes, 0, (struct sockaddr *)&sock_addr, &addr_len);
+        }
+    }
+
     if (ret <= 0) {
         return ret;
     }
@@ -634,14 +658,14 @@ int tkl_net_set_reuse(const int fd)
 {
     int ret = 0;
     if (fd < 0) {
-        tkl_log_output("tkl_net_set_reuse err, fd(%d)!\r\n", fd);
+        bk_printf("tkl_net_set_reuse err, fd(%d)!\r\n", fd);
         return -3000 + fd;
     }
 
     int flag = 1;
     ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&flag, sizeof(int));
     if (0 != ret) {
-        tkl_log_output("setsockopt err, ret(%d)!\r\n", ret);
+        bk_printf("setsockopt err, ret(%d)!\r\n", ret);
         return OPRT_COM_ERROR;
     }
 
@@ -757,11 +781,7 @@ char* tkl_net_addr2str(const TUYA_IP_ADDR_T ipaddr)
     unsigned int addr = lwip_htonl(ipaddr);
     return ip_ntoa((ip_addr_t *) &addr);
 #else
-    static char str[10];
-
-    utoa(ipaddr, str, 10);
-
-    return str;
+    return inet_ntoa(ipaddr);
 #endif
 
 }
@@ -778,7 +798,7 @@ OPERATE_RET tkl_net_setsockopt(const int fd, const TUYA_OPT_LEVEL level, const T
 OPERATE_RET tkl_net_getsockopt(const int fd, const TUYA_OPT_LEVEL level, const TUYA_OPT_NAME optname, void *optval, int *optlen)
 {
     int ret = 0;
-    ret = getsockopt(fd, level, optname, optval, optlen);
+    ret = getsockopt(fd, level, optname, optval, (socklen_t *)optlen);
 
     return ret;
 }
@@ -857,7 +877,7 @@ OPERATE_RET tkl_net_getpeername(int fd, TUYA_IP_ADDR_T *addr, uint16_t *port)
 {
     return 0;
 }
-
+char g_tkl_station_hostname[16] = {0};
 /**
 * @brief Set the system hostname
 *
@@ -869,6 +889,10 @@ OPERATE_RET tkl_net_getpeername(int fd, TUYA_IP_ADDR_T *addr, uint16_t *port)
 */
 OPERATE_RET tkl_net_sethostname(const char *hostname)
 {
+    extern int net_dhcp_hostname_set(char *hostname);
+    snprintf(g_tkl_station_hostname, sizeof(g_tkl_station_hostname), "%s", hostname);
+    net_dhcp_hostname_set(g_tkl_station_hostname);
+    
     return 0;
 }
 

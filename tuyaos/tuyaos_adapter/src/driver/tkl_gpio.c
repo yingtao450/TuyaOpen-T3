@@ -2,7 +2,7 @@
 #include <driver/gpio.h>
 #include "gpio_driver.h"
 #include "sdkconfig.h"
-// #include "gpio_pub.h"
+#include <driver/uart.h>
 
 typedef struct {
     gpio_id_t           gpio;
@@ -34,6 +34,8 @@ static pin_dev_map_t pinmap[] = {
     if (__PIN >= sizeof(pinmap)/sizeof(pinmap[0])) {                        \
         return __ERROR;                                                     \
     }
+
+extern void bk_printf(const char *fmt, ...);
 
 /**
  * @brief gpio init
@@ -68,7 +70,7 @@ OPERATE_RET tkl_gpio_init(TUYA_GPIO_NUM_E pin_id, const TUYA_GPIO_BASE_CFG_T *cf
             } else if(cfg->mode == TUYA_GPIO_FLOATING) {
                 bk_gpio_enable_input(pinmap[pin_id].gpio);
             } else {
-                os_printf("set direct error \r\n");
+                bk_printf("set direct error \r\n");
                 return OPRT_NOT_SUPPORTED;
             }
             break;
@@ -155,25 +157,38 @@ OPERATE_RET tkl_gpio_read(TUYA_GPIO_NUM_E pin_id, TUYA_GPIO_LEVEL_E *level)
  */
 OPERATE_RET tkl_gpio_irq_init(TUYA_GPIO_NUM_E pin_id, const TUYA_GPIO_IRQ_T *cfg)
 {
+    gpio_config_t local_cfg;
     gpio_int_type_t trigger;
+
+    bk_gpio_driver_init();
+    gpio_dev_unmap(pinmap[pin_id].gpio);
+
+    local_cfg.io_mode = GPIO_INPUT_ENABLE;
 
     switch (cfg->mode)
     {
         case TUYA_GPIO_IRQ_RISE:
             trigger = GPIO_INT_TYPE_RISING_EDGE;
+            local_cfg.pull_mode = GPIO_PULL_DOWN_EN;
             break;
         case TUYA_GPIO_IRQ_FALL:
             trigger = GPIO_INT_TYPE_FALLING_EDGE;
+            local_cfg.pull_mode = GPIO_PULL_UP_EN;
             break;
         case TUYA_GPIO_IRQ_LOW:
             trigger = GPIO_INT_TYPE_LOW_LEVEL;
+            local_cfg.pull_mode = GPIO_PULL_UP_EN;
             break;
         case TUYA_GPIO_IRQ_HIGH:
             trigger = GPIO_INT_TYPE_HIGH_LEVEL;
+            local_cfg.pull_mode = GPIO_PULL_DOWN_EN;
             break;
+        case TUYA_GPIO_IRQ_RISE_FALL:
         default:
             return OPRT_NOT_SUPPORTED;
     }
+
+    bk_gpio_set_config(pinmap[pin_id].gpio, &local_cfg);
 
     pinmap[pin_id].cb = (gpio_isr_t)cfg->cb;
     pinmap[pin_id].args = cfg->arg;

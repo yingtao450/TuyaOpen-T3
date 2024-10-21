@@ -4,6 +4,7 @@
 #include <os/os.h>
 #include <components/shell_task.h>
 #include "tuya_cloud_types.h"
+#include "driver/flash.h"
 
 extern void tuya_app_main(void);
 extern void rtos_set_user_app_entry(beken_thread_function_t entry);

@@ -35,13 +35,14 @@ extern "C" {
 #define BK_LOG_DEBUG   4 /*!< Extra information which is not necessary for normal use (values, pointers, sizes, etc). */
 #define BK_LOG_VERBOSE 5 /*!< Extra information which is not necessary for normal use (values, pointers, sizes, etc). */
 
+/* Modified by TUYA Start */
 #ifdef CFG_LOG_LEVEL
-#define LOG_LEVEL         CFG_LOG_LEVEL
+#define BK_LOG_LEVEL         CFG_LOG_LEVEL
 #else
-#define LOG_LEVEL         BK_LOG_INFO
+#define BK_LOG_LEVEL         BK_LOG_INFO
 #endif
 
-#if (LOG_LEVEL >= BK_LOG_ERROR)
+#if (BK_LOG_LEVEL >= BK_LOG_ERROR)
 #define BK_LOGE( tag, format, ... )         _BK_LOG_PRINTF(BK_LOG_ERROR, tag, format,  ##__VA_ARGS__)
 #define BK_RAW_LOGE( tag, format, ... )     _BK_RAW_PRINTF(BK_LOG_ERROR, tag, format,  ##__VA_ARGS__)
 #else
@@ -49,7 +50,7 @@ extern "C" {
 #define BK_RAW_LOGE(tag, format, ...)       (void)(format, ##__VA_ARGS__)
 #endif
 
-#if (LOG_LEVEL >= BK_LOG_WARN)
+#if (BK_LOG_LEVEL >= BK_LOG_WARN)
 #define BK_LOGW( tag, format, ... )         _BK_LOG_PRINTF(BK_LOG_WARN, tag, format,  ##__VA_ARGS__)
 #define BK_RAW_LOGW( tag, format, ... )     _BK_RAW_PRINTF(BK_LOG_WARN, tag, format,  ##__VA_ARGS__)
 #else
@@ -57,7 +58,7 @@ extern "C" {
 #define BK_RAW_LOGW(tag, format, ...)       (void)(format, ##__VA_ARGS__)
 #endif
 
-#if (LOG_LEVEL >= BK_LOG_INFO)
+#if (BK_LOG_LEVEL >= BK_LOG_INFO)
 #define BK_LOGI( tag, format, ... )         _BK_LOG_PRINTF(BK_LOG_INFO, tag, format,  ##__VA_ARGS__)
 #define BK_RAW_LOGI( tag, format, ... )     _BK_RAW_PRINTF(BK_LOG_INFO, tag, format,  ##__VA_ARGS__)
 #else
@@ -65,7 +66,7 @@ extern "C" {
 #define BK_RAW_LOGI(tag, format, ...)       (void)(format, ##__VA_ARGS__)
 #endif
 
-#if (LOG_LEVEL >= BK_LOG_DEBUG)
+#if (BK_LOG_LEVEL >= BK_LOG_DEBUG)
 #define BK_LOGD( tag, format, ... )         _BK_LOG_PRINTF(BK_LOG_DEBUG, tag, format,  ##__VA_ARGS__)
 #define BK_RAW_LOGD( tag, format, ... )     _BK_RAW_PRINTF(BK_LOG_DEBUG, tag, format,  ##__VA_ARGS__)
 #else
@@ -73,14 +74,14 @@ extern "C" {
 #define BK_RAW_LOGD(tag, format, ...)       (void)(format, ##__VA_ARGS__)
 #endif
 
-#if (LOG_LEVEL >= BK_LOG_VERBOSE)
+#if (BK_LOG_LEVEL >= BK_LOG_VERBOSE)
 #define BK_LOGV( tag, format, ... )         _BK_LOG_PRINTF(BK_LOG_VERBOSE, tag, format, ##__VA_ARGS__)
 #define BK_RAW_LOGV( tag, format, ... )     _BK_RAW_PRINTF(BK_LOG_VERBOSE, tag, format, ##__VA_ARGS__)
 #else
 #define BK_LOGV(tag, format, ...)           (void)(format, ##__VA_ARGS__)
 #define BK_RAW_LOGV(tag, format, ...)       (void)(format, ##__VA_ARGS__)
 #endif
-
+/* Modified by TUYA End */
 #define BK_LOG_RAW(format, ...)             _BK_RAW_PRINTF(BK_LOG_NONE, NULL, format, ##__VA_ARGS__)
 
 #define BK_IP4_FORMAT "%d.%d.%d.%d"

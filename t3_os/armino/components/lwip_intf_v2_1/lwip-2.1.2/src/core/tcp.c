@@ -1186,6 +1186,41 @@ tcp_connect(struct tcp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port,
   return ret;
 }
 
+void tcp_force_clear_ps_flag(void)
+{
+
+}
+
+u32_t tcp_ps_flag_get(void)
+{
+  return 0;
+}
+
+void tcp_set_ps_flag(struct tcp_pcb *tpcb)
+{
+
+}
+
+void tcp_clear_ps_flag(struct tcp_pcb *tpcb)
+{
+
+}
+
+u32_t tcp_increase_rx_win_cnt_get(void)
+{
+  return 0;
+}
+
+void tcp_increase_rx_win_cnt_set(void)
+{
+
+}
+
+void tcp_increase_rx_win_cnt_clear(void)
+{
+
+}
+
 /**
  * Called every 500 ms and implements the retransmission timer and the timer that
  * removes PCBs that have been in TIME-WAIT for enough time. It also increments

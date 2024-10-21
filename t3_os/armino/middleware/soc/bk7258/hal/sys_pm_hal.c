@@ -371,7 +371,6 @@ static inline void sys_hal_deep_sleep_set_buck(void)
 {
 	sys_ll_set_ana_reg11_aldosel(1);
 	sys_ll_set_ana_reg12_dldosel(1);
-	// sys_ll_set_ana_reg11_enpowa(0); //20230423 tenglong
 }
 
 static inline void sys_hal_deep_sleep_set_vldo(void)
@@ -545,7 +544,7 @@ static inline void sys_hal_clear_wakeup_status(void)
 	aon_pmu_ll_set_r43_clr_wakeup(0);
 }
 
-static void sys_hal_gpio_state_switch(bool lock)
+void sys_hal_gpio_state_switch(bool lock)
 {
 	/*pass aon_pmu_r0 to ana*/
 	if (lock) {
@@ -651,6 +650,7 @@ __attribute__((section(".itcm_sec_code"))) void sys_hal_enter_deep_sleep(void *p
 	{
 		sys_ll_set_ana_reg11_enpowa(0x0);
 	}
+
 	/*buffer low power*/
 	if(sys_ll_get_ana_reg10_vbspbuflp1v() != 0x1)
 	{

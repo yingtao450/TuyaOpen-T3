@@ -71,8 +71,8 @@
 #include <os/os.h>
 
 /* Define those to better describe your network interface. */
-#define IFNAME0 'e'
-#define IFNAME1 'n'
+#define IFNAME0 's'
+#define IFNAME1 'a'
 
 #include "bk_uart.h"
 #include "bk_wifi.h"
@@ -109,8 +109,10 @@ static void low_level_init(struct netif *netif)
 	int vif_index = wifi_netif_vif_to_vifid(vif);
 
 #if LWIP_NETIF_HOSTNAME
-    /* Initialize interface hostname */
-    netif->hostname = (char*)&wlan_name[vif_index];
+    if(NULL == netif->hostname) {
+        /* Initialize interface hostname */
+        netif->hostname = (char*)&wlan_name[vif_index];
+    }
 #endif /* LWIP_NETIF_HOSTNAME */
 
     /* set MAC hardware address length */

@@ -1391,7 +1391,11 @@ tcp_output(struct tcp_pcb *pcb)
     if (TCP_TCPLEN(seg) > 0) {
       seg->next = NULL;
       /* unacked list is empty? */
+#if CONFIG_SPI_ETH // Modified by TUYA Start
+	    if (useg == NULL) {
+#else	  
       if (pcb->unacked == NULL) {
+#endif // Modified by TUYA End
         pcb->unacked = seg;
         useg = seg;
         /* unacked list is not empty? */

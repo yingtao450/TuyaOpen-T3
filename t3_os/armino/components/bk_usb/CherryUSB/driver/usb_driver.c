@@ -194,7 +194,7 @@ bk_err_t bk_usb_driver_deinit(void)
 static void bk_analog_layer_usb_sys_related_ops(uint32_t usb_mode, bool ops)
 {
 	uint32_t reg = 0;
-	extern void delay(INT32 num);
+	extern void bk_delay(INT32 num);
 
 #if 0
 	sys_drv_usb_analog_phy_en(ops, NULL);
@@ -203,7 +203,7 @@ static void bk_analog_layer_usb_sys_related_ops(uint32_t usb_mode, bool ops)
 #endif
 	if(ops){
 		sys_drv_usb_clock_ctrl(true, NULL);
-		delay(100);
+		bk_delay(100);
 #if 0
 		sys_drv_usb_analog_deepsleep_en(false);
 #endif
@@ -214,20 +214,20 @@ static void bk_analog_layer_usb_sys_related_ops(uint32_t usb_mode, bool ops)
 		reg &= ~(1<<5);
 		*((volatile unsigned long *) (0x44010000+0x10*4)) = reg;//0.9v
 
-		delay(100);
+		bk_delay(100);
 		reg = *((volatile unsigned long *) (0x44010000+0x4d*4));
 		if(!(reg & (1<<31)))
 			*((volatile unsigned long *) (0x44010000+0x4d*4)) |= (1<<31);//buckpa enable
 
-		delay(100);
+		bk_delay(100);
 		*((volatile unsigned long *) (0x44010000+0x4a*4)) |= (1<<12);//1.8v
-		delay(100);
+		bk_delay(100);
 		*((volatile unsigned long *) (0x44010000+0x4a*4)) |= (1<<13);//3.3v
-		delay(100);
+		bk_delay(100);
 		if(usb_mode == USB_HOST_MODE) {
 			REG_USB_USR_708 = 0x0;
 			REG_USB_USR_710 &= ~(0x1<< 7);
-			delay(100);
+			bk_delay(100);
 
 			REG_USB_USR_710 |= (0x1<<15);
 			//REG_USB_USR_710 |= (0x1<<14);
@@ -258,7 +258,7 @@ static void bk_analog_layer_usb_sys_related_ops(uint32_t usb_mode, bool ops)
 					break;
 				} else {
 					USB_DRIVER_LOGI("70c_reg:0x%x\r\n", reg);
-					delay(10000);
+					bk_delay(10000);
 				}
         	}
 			REG_USB_PHY_00   &= ~0x08;     
@@ -290,12 +290,12 @@ static void bk_analog_layer_usb_sys_related_ops(uint32_t usb_mode, bool ops)
 		reg = *((volatile unsigned long *) (0x44010000+0x4a*4));
 		reg &= (1<<13);
 		*((volatile unsigned long *) (0x44010000+0x4a*4)) = reg;//3.3v
-		delay(100);
+		bk_delay(100);
 
 		reg = *((volatile unsigned long *) (0x44010000+0x4a*4));
 		reg &= ~(1<<12);
 		*((volatile unsigned long *) (0x44010000+0x4a*4)) = reg;//1.8v
-		delay(100);
+		bk_delay(100);
 
 		reg = *((volatile unsigned long *) (0x44010000+0x10*4));
 		reg &= ~(0<<5);

@@ -2460,7 +2460,7 @@ TickType_t xTaskGetTickCount( void )
     /* Critical section required if running on a 16 bit processor. */
     portTICK_TYPE_ENTER_CRITICAL();
     {
-        xTicks = xTickCount;
+        xTicks = xTickCount + xPendedTicks;
     }
     portTICK_TYPE_EXIT_CRITICAL();
 
@@ -2491,7 +2491,7 @@ TickType_t xTaskGetTickCountFromISR( void )
 
     uxSavedInterruptStatus = portTICK_TYPE_SET_INTERRUPT_MASK_FROM_ISR();
     {
-        xReturn = xTickCount;
+        xReturn = xTickCount + xPendedTicks;
     }
     portTICK_TYPE_CLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 
@@ -2768,33 +2768,54 @@ void pcTaskSetName( TaskHandle_t xTaskToQuery, char * pcName )
  * implementations require configUSE_TICKLESS_IDLE to be set to a value other than
  * 1. */
 #if ( configUSE_TICKLESS_IDLE != 0 )
-
     void vTaskStepTick( TickType_t xTicksToJump )
     {
-        const TickType_t xConstTickCount = xTickCount;
-        const TickType_t xConstTickNext = xConstTickCount + xTicksToJump;
-        /* Correct the tick count value after a period during which the tick
-         * was suppressed.  Note this does *not* call the tick hook function for
-         * each stepped tick. */
+        if(xTicksToJump <= 0)
+            return;
 
-        if (xConstTickNext > xConstTickCount)
+        #if configBK_FREERTOS
+        GLOBAL_INT_DECLARATION();
+        GLOBAL_INT_DISABLE();
+        #endif
         {
-            if (xConstTickNext > xNextTaskUnblockTime ) {
-                xTickCount = xConstTickNext - 1;
-                xTaskIncrementTick();
-                prvResetNextTaskUnblockTime();
-            } else {
-                xTickCount = xConstTickNext;
-            }
-        }  else {
-            xTickCount = portMAX_DELAY - 1;
-            xNextTaskUnblockTime = 0;
-            xTaskIncrementTick();
-            prvResetNextTaskUnblockTime();
-        }
-        traceINCREASE_TICK_COUNT( xTicksToJump );
-    }
+            if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
+            {
+                const TickType_t xConstTickCount = xTickCount;
+                const TickType_t xConstTickNext = xConstTickCount + xTicksToJump;
 
+                /* Correct the tick count value after a period during which the tick
+                * was suppressed.  Note this does *not* call the tick hook function for
+                * each stepped tick. */
+                if ( xConstTickNext > xConstTickCount )
+                {
+                    if ( xConstTickNext >= xNextTaskUnblockTime )
+                    {
+                        xTickCount = xConstTickNext - 1;
+                        xTaskIncrementTick();
+                    }
+                    else
+                    {
+                        xTickCount = xConstTickNext;
+                        traceTASK_INCREMENT_TICK( xTickCount );
+                    }
+                }
+                else
+                {
+                    xTickCount = portMAX_DELAY - 1;
+                    xTaskIncrementTick();
+                    xTicksToJump = (portMAX_DELAY - 1) - xConstTickCount;
+                }
+            }
+            else
+            {
+                xPendedTicks += xTicksToJump;
+            }
+            traceINCREASE_TICK_COUNT( xTicksToJump );
+        }
+        #if configBK_FREERTOS
+        GLOBAL_INT_RESTORE();
+        #endif
+    }
 #endif /* configUSE_TICKLESS_IDLE */
 /*----------------------------------------------------------*/
 

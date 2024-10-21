@@ -637,6 +637,42 @@ static void uart_isr_register_functions(uart_id_t id)
 	}
 }
 
+uint32_t uart_id_to_pm_uart_id(uint32_t uart_id)
+{
+	switch (uart_id)
+	{
+		case UART_ID_0:
+			return PM_DEV_ID_UART1;
+
+		case UART_ID_1:
+			return PM_DEV_ID_UART2;
+
+		case UART_ID_2:
+			return PM_DEV_ID_UART3;
+
+		default:
+			return PM_DEV_ID_UART1;
+	}
+}
+
+static bk_err_t uart_enter_deep_sleep(uint64_t sleep_time, void *args)
+{
+	uart_id_t uart_id = (uart_id_t)args;
+
+	// disable TX firstly, then set tx_stopped to 1.
+	bk_uart_disable_tx_interrupt(uart_id);
+
+	// suspend, tx stopped after fifo empty.
+	while((bk_uart_is_tx_over(uart_id) == 0))
+	{
+	}
+	bk_uart_set_enable_tx(uart_id, 0);
+
+	bk_uart_set_enable_rx(uart_id, 0);
+
+	return BK_OK;
+}
+
 #if CONFIG_UART_PM_CB_SUPPORT
 static bk_err_t uart_pm_backup(uint64_t sleep_time, void *args)
 {
@@ -866,6 +902,18 @@ bk_err_t bk_uart_init(uart_id_t id, const uart_config_t *config)
 		bk_pm_module_lv_sleep_state_clear(PM_DEV_ID_UART3);
 	}
 #endif
+
+	pm_cb_conf_t enter_config = {
+		.cb = (pm_cb)uart_enter_deep_sleep,
+		.args = (void *)id
+	};
+	pm_cb_conf_t exit_config = {
+		.cb = NULL,
+		.args = (void *)PM_CB_PRIORITY_1
+	};
+	u8 pm_uart_port = uart_id_to_pm_uart_id(id);
+
+	bk_pm_sleep_register_cb(PM_MODE_DEEP_SLEEP, pm_uart_port, &enter_config, &exit_config);
 
 #if CONFIG_SOC_BK7236XX || (CONFIG_SOC_BK7239XX) || (CONFIG_SOC_BK7286XX)
 	uart_isr_register_functions(id);
@@ -1325,6 +1373,21 @@ gpio_id_t bk_uart_get_rx_gpio(uart_id_t id)
 bool bk_uart_is_tx_over(uart_id_t id)
 {
 	return uart_hal_is_tx_fifo_empty(&s_uart[id].hal, id);
+}
+
+void bk_uart_wait_tx_over(uart_id_t id)
+{
+	uint32_t uart_wait_us;
+	uint32_t baudrate;
+	uint32_t tx_fifo_count;
+	uart_hw_t *hw = (uart_hw_t *)UART_LL_REG_BASE(id);
+	extern void delay_us(UINT32 us);
+
+	tx_fifo_count = hw->fifo_status.tx_fifo_count + 1;
+	baudrate = UART_CLOCK / (hw->config.clk_div + 1);
+	uart_wait_us = 1000000 * tx_fifo_count * 10 / baudrate;
+
+	delay_us(uart_wait_us);
 }
 
 uint32_t uart_wait_tx_over(void)

@@ -1,7 +1,5 @@
 #include "tkl_timer.h"
-// #include "_stdint.h"
 #include <driver/timer.h>
-// #include "BkDriverTimer.h"
 
 /* private macros */
 #define TIMER_DEV_NUM       4
@@ -51,14 +49,10 @@ OPERATE_RET tkl_timer_start(TUYA_TIMER_NUM_E timer_id, uint32_t us)
     }
 
     cfg = &cfg_save;
-    if ((0 == timer_id) || (1 == timer_id))
-    {
+    if ((0 == timer_id) || (1 == timer_id)) {
         bk_timer_start(timer_id, us, (timer_isr_t)cfg->cb);
-    }
-    else
-    {
-        if (us < 1000)
-        {
+    } else {
+        if (us < 1000) {
             /* tuya timer2~timer3 can't not set cycle less than 1ms */
             return OPRT_INVALID_PARM;
         }
@@ -82,12 +76,9 @@ OPERATE_RET tkl_timer_stop(TUYA_TIMER_NUM_E timer_id)
         return OPRT_NOT_SUPPORTED;
     }
 
-    if ((0 == timer_id) || (1 == timer_id))
-    {
+    if ((0 == timer_id) || (1 == timer_id)) {
         bk_timer_stop(timer_id);
-    }
-    else
-    {
+    } else {
         bk_timer_stop(timer_id + 2); //bk timer2、3 被系统占用了实际 bk timerID 为 timer4~timer5
         return OPRT_OK;
     }
@@ -119,16 +110,13 @@ OPERATE_RET tkl_timer_get(TUYA_TIMER_NUM_E timer_id, uint32_t *us)
 {
     uint32_t count;
 
-    if ((0 == timer_id) || (1 == timer_id))
-    {
+    if ((0 == timer_id) || (1 == timer_id)) {
         count = bk_timer_get_cnt(timer_id);
 
         if (us != NULL) {
             *us = count / 26;
         }
-    }
-    else
-    {
+    } else {
         return OPRT_NOT_SUPPORTED;
     }
 

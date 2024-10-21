@@ -15,9 +15,33 @@ macro(FIND_INCLUDE_DIR result curdir)
 endmacro()
 
 #add tuya include dir
-set(INCLUDE_DIR_LIST_TUYA $ENV{TUYA_HEADER_DIR})
-string(REPLACE " " ";" INCLUDE_DIR_LIST_TUYA "${INCLUDE_DIR_LIST_TUYA}")
-set(incs ${INCLUDE_DIR_LIST_TUYA})
+set(include_dirs
+    "include/adc"
+    "include/bluetooth"
+    "include/flash"
+    "include/gpio"
+    "include/hci"
+    "include/init/include"
+    "include/network"
+    "include/pinmux"
+    "include/pwm"
+    "include/rtc"
+    "include/i2c"
+    "include/spi"
+    "include/system"
+    "include/timer"
+    "include/uart"
+    "include/watchdog"
+    "include/wifi"
+    "include/utilities/include"
+    "include/wakeup"
+    )
+
+string(REPLACE " " ";" TUYA_HEADER_DIR_LIST $ENV{TUYA_HEADER_DIR})
+
+foreach(head ${TUYA_HEADER_DIR_LIST})
+    list(APPEND include_dirs ${head})
+endforeach()
 
 list(APPEND srcs
 	"src/driver/tkl_adc.c"
@@ -50,7 +74,7 @@ file(GLOB_RECURSE utilities_srcs "$ENV{ARMINO_PATH}/../../tuyaos/tuyaos_adapter/
 list(APPEND srcs ${utilities_srcs})
 
 #add incs srcs
-armino_component_register(SRCS "${srcs}" INCLUDE_DIRS "${incs}" REQUIRES bk_common bk_log lwip_intf_v2_1)
+armino_component_register(SRCS "${srcs}" INCLUDE_DIRS "${include_dirs}" REQUIRES bk_common bk_log lwip_intf_v2_1)
 
 #add tuya lib
 set(tuya_libs "$ENV{TUYA_LIBS}")

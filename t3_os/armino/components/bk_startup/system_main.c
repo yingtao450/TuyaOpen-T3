@@ -325,9 +325,6 @@ void bk_set_jtag_mode(uint32_t cpu_id, uint32_t group_id) {
 	}
 #endif
 }
-
-
-
 #define OTP_FLASH_DATA_SIZE        1024
 #define OTP_FLASH_RFDATA_SIZE       512
 #define PARTITION_SIZE         (1 << 12) /* 4KB */
@@ -340,7 +337,6 @@ void bk_set_jtag_mode(uint32_t cpu_id, uint32_t group_id) {
 #include <driver/flash_partition.h>
 #include <os/mem.h>
 #include <modules/wifi.h>
-
 extern void flash_lock(void);
 extern void flash_unlock(void);
 
@@ -480,7 +476,6 @@ static int user_recovery_rfcali_data(void)
 
     return 0;
 }
-
 static void user_app_thread( void *arg )
 {
 	rtos_user_app_waiting_for_launch();
@@ -488,7 +483,6 @@ static void user_app_thread( void *arg )
 	os_printf("user app entry(0x%0x)\r\n", s_user_app_entry);
 	if(NULL != s_user_app_entry) {
 		bk_wdt_stop();
-
 		user_recovery_rfcali_data();
 
 		s_user_app_entry(0);

@@ -45,7 +45,7 @@ typedef struct {
 		}\
 	} while (0)
 
-extern void delay(int num);
+extern void bk_delay(int num);
 
 static h264_driver_t s_h264 = {0};
 static uint8_t h264_dma_rx_id = 0;
@@ -606,7 +606,7 @@ bk_err_t bk_h264_clk_check(void)
 {
 	/*old h264 clk check*/
 	/**
-	extern void delay(INT32 num);
+	extern void bk_delay(INT32 num);
 	volatile uint32_t val = sys_hal_analog_get(0x5);
 	val |= (0x1 << 5) | (0x1 << 3) | (0x1 << 2) | (0x1 << 1);
 	sys_hal_analog_set_t(0x5, val);
@@ -617,7 +617,7 @@ bk_err_t bk_h264_clk_check(void)
 	val &= ~(0x1 << 4);
 	sys_hal_analog_set_t(0x0, val);
 
-	delay(10);
+	bk_delay(10);
 
 	val |= (0x1 << 4);
 	val &= ~(0x1 << 19);
@@ -643,12 +643,12 @@ bk_err_t bk_h264_clk_check(void)
 	sys_hal_analog_set_t(0x8, 0x57E627FA);
 	sys_hal_analog_set_t(0x9, 0x787FC6A4);
 
-	delay(10);
+	bk_delay(10);
 	val = sys_hal_analog_get(0x0);
 	val &= ~(0x1 << 19);
 	val |= (0x1 << 19);
 	sys_hal_analog_set_t(0x0,val);
-	delay(100);
+	bk_delay(100);
 
 	val = sys_hal_analog_get(0x0);//ffe7 31a7
 	val |= (0x13 << 20) ;

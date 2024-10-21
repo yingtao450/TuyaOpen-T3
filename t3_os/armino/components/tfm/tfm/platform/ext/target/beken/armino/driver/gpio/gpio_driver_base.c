@@ -114,7 +114,9 @@ bk_err_t bk_gpio_driver_init(void)
 {
 	//avoid re-init caused some info lost
 	if(s_gpio_is_init) {
-		GPIO_LOGI("%s:has inited \r\n", __func__);
+		/* Modified by TUYA Start */
+		//GPIO_LOGI("%s:has inited \r\n", __func__); //by tuya
+		/* Modified by TUYA End */
 		return BK_OK;
 	}
 
@@ -163,7 +165,9 @@ bk_err_t bk_gpio_driver_deinit(void)
 {
 	if(!s_gpio_is_init)
 	{
-		GPIO_LOGI("%s:isn't init \r\n", __func__);
+		/* Modified by TUYA Start */
+		//GPIO_LOGI("%s:isn't init \r\n", __func__);  //by tuya
+		/* Modified by TUYA End */
 		return BK_OK;
 	}
 
@@ -343,7 +347,9 @@ static void gpio_isr(void)
 			}
 #endif
 			if (s_gpio_isr[gpio_id]) {
-				GPIO_LOGD("gpio int: index:%d \r\n",gpio_id);
+				/* Modified by TUYA Start */
+				//GPIO_LOGD("gpio int: index:%d \r\n",gpio_id); //by tuya
+				/* Modified by TUYA End */
 				s_gpio_isr[gpio_id](gpio_id);
 			}
 		}

@@ -66,6 +66,7 @@ OPERATE_RET tkl_io_pinmux_config(TUYA_PIN_NAME_E pin, TUYA_PIN_FUNC_E pin_func)
         case TUYA_IIC2_SDA:
             __tkl_i2c_set_sda_pin(TUYA_I2C_NUM_2, pin);
             break;
+#if 0
         case TUYA_IIC3_SCL:
             __tkl_i2c_set_scl_pin(TUYA_I2C_NUM_3, pin);
             break;
@@ -84,6 +85,7 @@ OPERATE_RET tkl_io_pinmux_config(TUYA_PIN_NAME_E pin, TUYA_PIN_FUNC_E pin_func)
         case TUYA_IIC5_SDA:
             __tkl_i2c_set_sda_pin(TUYA_I2C_NUM_5, pin);
             break;
+#endif
         default:
             break;
     

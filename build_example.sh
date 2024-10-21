@@ -121,6 +121,19 @@ for i in `find ${APP_OBJ_PATH}/$APP_BIN_NAME/src -type d`; do
 done
 fi
 
+TOP_DIR=$(pwd)
+if [ -f ${TOP_DIR}/.app ]; then
+    OLD_APP_BIN_NAME=$(cat ${TOP_DIR}/.app)
+    echo OLD_APP_BIN_NAME: ${OLD_APP_BIN_NAME}
+fi
+
+echo ${APP_BIN_NAME} > ${TOP_DIR}/.app
+if [ "$OLD_APP_BIN_NAME" != "$APP_BIN_NAME" ]; then
+	make clean -C ./t3_os/armino/
+	rm -rf ./t3_os/tuya_build
+	echo "AUTO CLEAN SUCCESS"
+fi
+
 if [ x$USER_CMD = "xclean" ];then
 	make clean -C ./t3_os/armino/
 	rm -rf ./t3_os/tuya_build

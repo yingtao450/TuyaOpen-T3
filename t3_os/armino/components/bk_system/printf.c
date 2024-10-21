@@ -62,7 +62,9 @@ int printf_lock_init(void)
 {
 #if CONFIG_SHELL_ASYNCLOG
 	memset(&mod_tag_list[0], 0, sizeof(mod_tag_list));
-	shell_set_log_level(LOG_LEVEL);
+	/* Modified by TUYA Start */
+	shell_set_log_level(BK_LOG_LEVEL);
+	/* Modified by TUYA End */
 #endif
 
 	return BK_OK;
@@ -365,7 +367,9 @@ void bk_set_printf_enable(uint8_t enable)
 		shell_set_log_level(0);
 	} else {
 		shell_echo_set(1);
-		shell_set_log_level(LOG_LEVEL);
+		/* Modified by TUYA Start */
+		shell_set_log_level(BK_LOG_LEVEL);
+		/* Modified by TUYA End */
 	}
 #endif
 	s_printf_enable = enable;

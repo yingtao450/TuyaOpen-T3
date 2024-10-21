@@ -1,11 +1,13 @@
+#include "driver/dma.h"
 #include "tkl_spi.h"
 #include <driver/spi.h>
 #include <sdkconfig.h>
 
+#define SPI_DMA_MAX_LEN 65535
+static spi_config_t spi_config = {0};
+
 OPERATE_RET tkl_spi_init(TUYA_SPI_NUM_E port, const TUYA_SPI_BASE_CFG_T *cfg)
 {
-    spi_config_t spi_config = {0};
-
     if (port > TUYA_SPI_NUM_0) {
         return OPRT_INVALID_PARM;
     }
@@ -21,7 +23,10 @@ OPERATE_RET tkl_spi_init(TUYA_SPI_NUM_E port, const TUYA_SPI_BASE_CFG_T *cfg)
     spi_config.baud_rate = cfg->freq_hz;
     
 #if (CONFIG_SPI_DMA)
-    spi_config.dma_mode = SPI_DMA_MODE_ENABLE;
+    if (cfg->spi_dma_flags) {
+        spi_config.dma_mode = SPI_DMA_MODE_ENABLE;
+    }
+
     if (port == TUYA_SPI_NUM_0) {
         spi_config.spi_tx_dma_chan = bk_dma_alloc(DMA_DEV_GSPI0);
         spi_config.spi_rx_dma_chan = bk_dma_alloc(DMA_DEV_GSPI0_RX);
@@ -71,16 +76,14 @@ OPERATE_RET tkl_spi_init(TUYA_SPI_NUM_E port, const TUYA_SPI_BASE_CFG_T *cfg)
        spi_config.bit_order = SPI_MSB_FIRST;
     }
 
-    if (bk_spi_init((spi_id_t)port, &spi_config) != BK_OK)
-        return OPRT_COM_ERROR;
-
+    BK_RETURN_ON_ERR(bk_spi_init((spi_id_t)port, &spi_config));
     return OPRT_OK;
 }
 
 OPERATE_RET tkl_spi_deinit(TUYA_SPI_NUM_E port)
 {
-    if (bk_spi_deinit((spi_id_t)port) != BK_OK)
-        return OPRT_COM_ERROR;
+    BK_RETURN_ON_ERR(bk_spi_deinit((spi_id_t)port));
+    memset(&spi_config, 0, sizeof(spi_config)); 
     return OPRT_OK;
 }
 
@@ -91,19 +94,23 @@ OPERATE_RET tkl_spi_send(TUYA_SPI_NUM_E port, void *data, uint16_t size)
     }
 
 #if (CONFIG_SPI_DMA)
-    if (size >= 65535) {
-        return OPRT_INVALID_PARM;
-    }
+    if (SPI_DMA_MODE_ENABLE == spi_config.dma_mode) {
+        if (size >= SPI_DMA_MAX_LEN) {
+            return OPRT_INVALID_PARM;
+        }
 
-    if (bk_spi_dma_write_bytes((spi_id_t)port, data, size) != BK_OK)
-        return OPRT_COM_ERROR;
-#else
-    if (size >= 4096) {
-        return OPRT_INVALID_PARM;
-    }
+        if (bk_spi_dma_write_bytes((spi_id_t)port, data, size) != BK_OK)
+            return OPRT_COM_ERROR;
+    } else {
+#endif
+        if (size >= 4096) {
+            return OPRT_INVALID_PARM;
+        }
 
-    if (bk_spi_write_bytes((spi_id_t)port, data, size) != BK_OK)
-        return OPRT_COM_ERROR;
+        if (bk_spi_write_bytes((spi_id_t)port, data, size) != BK_OK)
+            return OPRT_COM_ERROR;
+#if (CONFIG_SPI_DMA)
+    }        
 #endif
 
     return OPRT_OK;
@@ -116,19 +123,23 @@ OPERATE_RET tkl_spi_recv(TUYA_SPI_NUM_E port, void *data, uint16_t size)
     }
 
 #if (CONFIG_SPI_DMA)
-    if (size >= 65535) {
-        return OPRT_INVALID_PARM;
-    }
+    if (SPI_DMA_MODE_ENABLE == spi_config.dma_mode) {
+        if (size >= SPI_DMA_MAX_LEN) {
+            return OPRT_INVALID_PARM;
+        }
 
-    if (bk_spi_dma_read_bytes((spi_id_t)port, data, size) != BK_OK)
-        return OPRT_COM_ERROR;
-#else
-    if (size >= 4096) {
-        return OPRT_INVALID_PARM;
-    }
+        if (bk_spi_dma_read_bytes((spi_id_t)port, data, size) != BK_OK)
+            return OPRT_COM_ERROR;
+    } else {    
+#endif
+        if (size >= 4096) {
+            return OPRT_INVALID_PARM;
+        }
 
-    if (bk_spi_read_bytes((spi_id_t)port, data, size) != BK_OK)
-        return OPRT_COM_ERROR;
+        if (bk_spi_read_bytes((spi_id_t)port, data, size) != BK_OK)
+            return OPRT_COM_ERROR;
+#if (CONFIG_SPI_DMA)
+    }        
 #endif
     return OPRT_OK;
 }
@@ -140,20 +151,24 @@ OPERATE_RET tkl_spi_transfer(TUYA_SPI_NUM_E port, void* send_buf, void* receive_
     } 
     
 #if (CONFIG_SPI_DMA)
-    if (length >= 65535) {
-        return OPRT_INVALID_PARM;
-    }
+    if (SPI_DMA_MODE_ENABLE == spi_config.dma_mode) {
+        if (length >= SPI_DMA_MAX_LEN) {
+            return OPRT_INVALID_PARM;
+        }
 
-    bk_spi_dma_duplex_init(port);
-    if (bk_spi_dma_duplex_xfer(port, send_buf, length, receive_buf, length) != BK_OK)
-        return OPRT_COM_ERROR;
-#else
-    if (length >= 4096) {
-        return OPRT_INVALID_PARM;
-    }
+        bk_spi_dma_duplex_init(port);
+        if (bk_spi_dma_duplex_xfer(port, send_buf, length, receive_buf, length) != BK_OK)
+            return OPRT_COM_ERROR;
+    } else {
+#endif
+        if (length >= 4096) {
+            return OPRT_INVALID_PARM;
+        }
 
-    if (bk_spi_transmit((spi_id_t)port, send_buf, length, receive_buf, length) != BK_OK)
-        return OPRT_COM_ERROR;
+        if (bk_spi_transmit((spi_id_t)port, send_buf, length, receive_buf, length) != BK_OK)
+            return OPRT_COM_ERROR;
+#if (CONFIG_SPI_DMA)
+    }   
 #endif
     return OPRT_OK;
 }

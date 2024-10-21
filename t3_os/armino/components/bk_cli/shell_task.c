@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
 #include "cli.h"
 #include <os/os.h>
 #include <common/bk_compiler.h>
@@ -14,6 +16,7 @@
 #if CONFIG_AT
 #include "atsvr_port.h"
 #endif
+#include <driver/media_co_list.h>
 
 #define DEV_UART        1
 #define DEV_MAILBOX     2
@@ -53,6 +56,7 @@
 #define SHELL_EVENT_TX_REQ  	0x01
 #define SHELL_EVENT_RX_IND  	0x02
 #define SHELL_EVENT_WAKEUP      0x04
+#define SHELL_EVENT_TX_SND      0x08
 
 // Modified by TUYA Start
 #define SHELL_LOG_BUF1_LEN      256     // 136
@@ -68,9 +72,9 @@
 
 #if (LOG_DEV == DEV_UART)
 #if CONFIG_RELEASE_VERSION
-#define SHELL_LOG_BUF1_NUM      4
-#define SHELL_LOG_BUF2_NUM      16
-#define SHELL_LOG_BUF3_NUM      32
+#define SHELL_LOG_BUF1_NUM      1
+#define SHELL_LOG_BUF2_NUM      1
+#define SHELL_LOG_BUF3_NUM      1
 #else
 #if !CONFIG_UART_RING_BUFF
 #define SHELL_LOG_BUF1_NUM      8
@@ -123,6 +127,14 @@ typedef struct
 	u32       event_flag;
 } os_ext_event_t;
 
+/* for async log with alloc buf */
+typedef struct
+{
+	struct co_list_hdr hdr;
+	uint16 buf_len;
+	uint16 buf_type;
+} print_node_t;
+
 enum
 {
 	CMD_TYPE_TEXT = 0,
@@ -166,6 +178,9 @@ typedef struct
 	/* patch for AT cmd handling. */
 	u8     cmd_ind_buff[SHELL_IND_BUF_LEN];
 	beken_semaphore_t   ind_buf_semaphore;
+
+	/* for async log with alloc buf */
+	struct co_list pending_list;
 } cmd_line_t;
 
 #define GET_BLOCK_ID(blocktag)          ((blocktag) & 0xFF)
@@ -213,7 +228,6 @@ typedef struct
 #define  SHELL_DECLARE_MEMORY_ATTR 
 #endif
 
-
 static SHELL_DECLARE_MEMORY_ATTR u8    shell_log_buff1[SHELL_LOG_BUF1_NUM * SHELL_LOG_BUF1_LEN];
 static SHELL_DECLARE_MEMORY_ATTR u8    shell_log_buff2[SHELL_LOG_BUF2_NUM * SHELL_LOG_BUF2_LEN];
 static SHELL_DECLARE_MEMORY_ATTR u8    shell_log_buff3[SHELL_LOG_BUF3_NUM * SHELL_LOG_BUF3_LEN];
@@ -221,6 +235,36 @@ static SHELL_DECLARE_MEMORY_ATTR u16   buff1_free_list[SHELL_LOG_BUF1_NUM];
 static SHELL_DECLARE_MEMORY_ATTR u16   buff2_free_list[SHELL_LOG_BUF2_NUM];
 static SHELL_DECLARE_MEMORY_ATTR u16   buff3_free_list[SHELL_LOG_BUF3_NUM];
 
+#define SHELL_LOG_BUF_TYPE_ALLOC       (1)
+#define SHELL_LOG_BUF_TYPE_STATIC_1    (2)
+#define SHELL_LOG_BUF_TYPE_STATIC_2    (3)
+#define SHELL_LOG_BUF_TYPE_STATIC_3    (4)
+
+#define SHELL_LOG_BUF_EX1_DATA_LEN     (4)
+#define SHELL_LOG_BUF_EX1_LEN          (sizeof(print_node_t) + SHELL_LOG_BUF_EX1_DATA_LEN + 4)
+#define SHELL_LOG_BUF_EX1_NUM          (500)
+#define MIN_ALLOC_BUF_EX1_NUM          (4)  // should less than SHELL_LOG_BUF_EX1_NUM
+static SHELL_DECLARE_MEMORY_ATTR u32   shell_log_buff_ex1[(SHELL_LOG_BUF_EX1_NUM * SHELL_LOG_BUF_EX1_LEN)/sizeof(u32)];
+struct co_list buff_ex1_free_list;
+
+#define SHELL_LOG_BUF_EX2_DATA_LEN     (100)
+#define SHELL_LOG_BUF_EX2_LEN          (sizeof(print_node_t) + SHELL_LOG_BUF_EX2_DATA_LEN + 4)
+#define SHELL_LOG_BUF_EX2_NUM          (40)
+#define MIN_ALLOC_BUF_EX2_NUM          (4)  // should less than SHELL_LOG_BUF_EX2_NUM
+static SHELL_DECLARE_MEMORY_ATTR u32   shell_log_buff_ex2[(SHELL_LOG_BUF_EX2_NUM * SHELL_LOG_BUF_EX2_LEN)/sizeof(u32)];
+struct co_list buff_ex2_free_list;
+
+#define SHELL_LOG_BUF_EX3_DATA_LEN     (200)
+#define SHELL_LOG_BUF_EX3_LEN          (sizeof(print_node_t) + SHELL_LOG_BUF_EX3_DATA_LEN + 4)
+#define SHELL_LOG_BUF_EX3_NUM          (6)
+#define MIN_ALLOC_BUF_EX3_NUM          (2)  // should less than SHELL_LOG_BUF_EX3_NUM
+static SHELL_DECLARE_MEMORY_ATTR u32   shell_log_buff_ex3[(SHELL_LOG_BUF_EX3_NUM * SHELL_LOG_BUF_EX3_LEN)/sizeof(u32)];
+struct co_list buff_ex3_free_list;
+
+#if( (((SHELL_LOG_BUF_EX1_DATA_LEN < SHELL_LOG_BUF_EX2_DATA_LEN) \
+    && (SHELL_LOG_BUF_EX2_DATA_LEN < SHELL_LOG_BUF_EX3_DATA_LEN)) == 0) )
+#error("SHELL TASK STATIC BUF LEN ERROR!!!")
+#endif
 
 /*    queue sort ascending in blk_len.    */
 static free_queue_t       free_queue[3] =
@@ -291,6 +335,7 @@ static int result_fwd(int blk_id);
 static u32 shell_ipc_rx_indication(u16 cmd, log_cmd_t *data, u16 cpu_id);
 
 #endif
+static void shell_cmd_free_buf_ex(print_node_t *node);
 
 static const char	 shell_cmd_ovf_str[] = "\r\n!!some CMDs lost!!\r\n";
 static const u16     shell_cmd_ovf_str_len = sizeof(shell_cmd_ovf_str) - 1;
@@ -1336,6 +1381,18 @@ extern gpio_id_t bk_uart_get_rx_gpio(uart_id_t id);
 
 static void shell_rx_wakeup(int gpio_id);
 
+static bk_err_t shell_enter_deep_sleep(uint64_t sleep_time, void *args)
+{
+	u32		flush_log = cmd_line_buf.log_flush;
+
+	uart_wait_tx_over();
+
+	log_dev->dev_drv->io_ctrl(log_dev, SHELL_IO_CTRL_TX_SUSPEND, (void *)flush_log);
+	cmd_dev->dev_drv->io_ctrl(cmd_dev, SHELL_IO_CTRL_RX_SUSPEND, NULL);
+
+	return BK_OK;
+}
+
 static void shell_power_save_enter(void)
 {
 	u32		flush_log = cmd_line_buf.log_flush;
@@ -1375,29 +1432,11 @@ static void shell_rx_wakeup(int gpio_id)
 	wakeup_process();
 	set_shell_event(SHELL_EVENT_WAKEUP);
 
-	shell_log_raw_data((const u8*)"wakeup\r\n", sizeof("wakeup\r\n") - 1);
+	//shell_log_raw_data((const u8*)"wakeup\r\n", sizeof("wakeup\r\n") - 1);
 
 	if(cmd_dev->dev_type == SHELL_DEV_UART)
 	{
 		bk_gpio_register_isr(gpio_id, NULL);
-	}
-}
-
-static uint32_t uart_id_to_pm_uart_id(uint32_t uart_id)
-{
-	switch (uart_id)
-	{
-		case UART_ID_0:
-			return PM_DEV_ID_UART1;
-
-		case UART_ID_1:
-			return PM_DEV_ID_UART2;
-
-		case UART_ID_2:
-			return PM_DEV_ID_UART3;
-
-		default:
-			return PM_DEV_ID_UART1;
 	}
 }
 
@@ -1426,13 +1465,41 @@ static void shell_task_init(void)
 	cmd_line_buf.cur_cmd_type = CMD_TYPE_INVALID;
 	cmd_line_buf.cmd_data_len = 0;
 	cmd_line_buf.bkreg_state = BKREG_WAIT_01;
-	cmd_line_buf.log_level = LOG_LEVEL;
+	/* Modified by TUYA Start */
+	cmd_line_buf.log_level = BK_LOG_LEVEL;
+	/* Modified by TUYA End */
 	cmd_line_buf.echo_enable = bTRUE;
 	cmd_line_buf.log_flush = 1;
 	cmd_line_buf.cmd_ovf_hint = 0;
 
 	rtos_init_semaphore_ex(&cmd_line_buf.rsp_buf_semaphore, 1, 1);  // one buffer for cmd_rsp.
 	rtos_init_semaphore_ex(&cmd_line_buf.ind_buf_semaphore, 1, 1);  // one buffer for cmd_ind.
+
+	co_list_init(&cmd_line_buf.pending_list);
+
+	co_list_init(&buff_ex1_free_list);
+	u8 *buff_ex = (u8 *)&shell_log_buff_ex1[0];
+	for(i = 0; i < SHELL_LOG_BUF_EX1_NUM; i++)
+	{
+		print_node_t * node = (print_node_t *)&buff_ex[i * SHELL_LOG_BUF_EX1_LEN];
+		co_list_push_back(&buff_ex1_free_list, &node->hdr);
+	}
+
+	co_list_init(&buff_ex2_free_list);
+	buff_ex = (u8 *)&shell_log_buff_ex2[0];
+	for(i = 0; i < SHELL_LOG_BUF_EX2_NUM; i++)
+	{
+		print_node_t * node = (print_node_t *)&buff_ex[i * SHELL_LOG_BUF_EX2_LEN];
+		co_list_push_back(&buff_ex2_free_list, &node->hdr);
+	}
+
+	co_list_init(&buff_ex3_free_list);
+	buff_ex = (u8 *)&shell_log_buff_ex3[0];
+	for(i = 0; i < SHELL_LOG_BUF_EX3_NUM; i++)
+	{
+		print_node_t * node = (print_node_t *)&buff_ex[i * SHELL_LOG_BUF_EX3_LEN];
+		co_list_push_back(&buff_ex3_free_list, &node->hdr);
+	}
 
 	create_shell_event();
 
@@ -1476,13 +1543,18 @@ static void shell_task_init(void)
 		shell_rx_wakeup(bk_uart_get_rx_gpio(uart_port));
 		#endif
 
-		u8 uart_port = UART_ID_MAX;
+		uart_id_t uart_port = UART_ID_MAX;
 		cmd_dev->dev_drv->io_ctrl(cmd_dev, SHELL_IO_CTRL_GET_UART_PORT, &uart_port);
 
 		u8 pm_uart_port = uart_id_to_pm_uart_id(uart_port);
 		bk_pm_sleep_register_cb(PM_MODE_LOW_VOLTAGE, pm_uart_port, &enter_config, &exit_config);
 
 		shell_rx_wakeup(bk_uart_get_rx_gpio(uart_port));
+
+		enter_config.cb = (pm_cb)shell_enter_deep_sleep;
+		exit_config.args = (void *)PM_CB_PRIORITY_1;
+
+		bk_pm_sleep_register_cb(PM_MODE_DEEP_SLEEP, pm_uart_port, &enter_config, &exit_config);
 	}
 
 	if(ate_is_enabled())
@@ -1505,6 +1577,14 @@ void shell_task( void *para )
 	{
 		Events = wait_any_event(timeout);  // WAIT_EVENT;
 
+		if(Events == 0)
+		{
+			if(!co_list_is_empty(&cmd_line_buf.pending_list))
+			{
+				Events |= SHELL_EVENT_TX_SND;
+			}
+		}
+
 		if(Events & SHELL_EVENT_TX_REQ)
 		{
 			echo_out((u8 *)"Unsolicited", sizeof("Unsolicited") - 1);
@@ -1516,10 +1596,42 @@ void shell_task( void *para )
 			wakeup_process();
 			rx_ind_process();
 		}
-		
+
 		if(Events & SHELL_EVENT_WAKEUP)
 		{
 			// TODO
+		}
+
+		if(Events & SHELL_EVENT_TX_SND)
+		{
+			while (!co_list_is_empty(&cmd_line_buf.pending_list))
+			{
+				print_node_t *node = (print_node_t *)co_list_pick(&cmd_line_buf.pending_list);
+				if(node)
+				{
+					u8 *ptr =(u8*)(node + 1);
+					int data_len = node->buf_len, buf_len = SHELL_IND_BUF_LEN, cpy_len;
+
+					u32  int_mask = shell_task_enter_critical();
+					co_list_pop_front(&cmd_line_buf.pending_list);
+					shell_task_exit_critical(int_mask);
+
+					while (data_len > 0)
+					{
+						rtos_get_semaphore(&cmd_line_buf.ind_buf_semaphore, SHELL_WAIT_OUT_TIME);
+						cpy_len = (data_len > buf_len)? buf_len : data_len;
+						cmd_ind_out(ptr, cpy_len);
+						data_len -= cpy_len;
+						ptr += cpy_len;
+					}
+					if(node->buf_type == SHELL_LOG_BUF_TYPE_ALLOC)
+						os_free(node);
+					else
+					{
+						shell_cmd_free_buf_ex(node);
+					}
+				}
+			}
 		}
 
 		if(Events == 0)
@@ -1536,15 +1648,6 @@ void shell_task( void *para )
 					//shell_log_raw_data((const u8*)"sleep\r\n", sizeof("sleep\r\n") - 1);
 				}
 			}
-		}
-
-		if(shell_pm_wake_flag)
-		{
-			timeout = SHELL_TASK_WAIT_TIME;
-		}
-		else
-		{
-			timeout = BEKEN_WAIT_FOREVER;
 		}
 	}
 }
@@ -1695,7 +1798,7 @@ int shell_log_raw_data(const u8 *data, u16 data_len)
 }
 
 // Modified by TUYA Start
-extern void shell_cmd_ind_out_ex(const char *format, va_list ap,int data_len_tmp);
+extern void shell_cmd_ind_out_ex(char *prefix, const char *format, va_list ap,int data_len_tmp);
 // Modified by TUYA End
 void shell_log_out_port(int level, char *prefix, const char *format, va_list ap)
 {
@@ -1705,8 +1808,9 @@ void shell_log_out_port(int level, char *prefix, const char *format, va_list ap)
 
 	if( !shell_init_ok )
 	{
-		cmd_line_buf.log_level = LOG_LEVEL;	// if not intialized, set log_level temporarily here. !!!patch!!!
-
+		/* Modified by TUYA Start */
+		cmd_line_buf.log_level = BK_LOG_LEVEL;	// if not intialized, set log_level temporarily here. !!!patch!!!
+		/* Modified by TUYA End */
 		shell_log_out_sync(level, prefix, format, ap);
 
 		return ;
@@ -1726,13 +1830,14 @@ void shell_log_out_port(int level, char *prefix, const char *format, va_list ap)
 #endif
 // Modified by TUYA End
 
-	packet_buf = alloc_log_blk(buf_len, &free_blk_tag);
+	//packet_buf = alloc_log_blk(buf_len, &free_blk_tag);
+	packet_buf = NULL;
 
 	if(packet_buf == NULL)
 	{
 // Modified by TUYA Start
 		//log_hint_out();
-		shell_cmd_ind_out_ex(format, ap, buf_len);
+		shell_cmd_ind_out_ex(prefix, format, ap, buf_len);
 // Modified by TUYA End
 		return ;
 	}
@@ -2119,68 +2224,227 @@ void shell_cmd_ind_out(const char *format, ...)
 	cmd_ind_out(cmd_line_buf.cmd_ind_buff, data_len);
 }
 
-// Modified by TUYA Start
-void shell_cmd_ind_out_ex(const char *format, va_list ap, int data_len_tmp)
+// flag=1 means need check list cnt, call in not-interrupt_context
+static print_node_t *shell_cmd_alloc_buf_ex(int data_len_tmp, u8 flag)
 {
-	int data_len, buf_len = SHELL_IND_BUF_LEN;
-	if (platform_is_in_interrupt_context())
-	{
-		log_hint_out();
-		return;
-	}
+	print_node_t *node = NULL;
+	struct co_list *head_list = NULL;
+	uint16 buf_type = 0, buf_len = 0;
 
-	rtos_get_semaphore(&cmd_line_buf.ind_buf_semaphore, SHELL_WAIT_OUT_TIME);
-	if (data_len_tmp < buf_len)
+	if(data_len_tmp <= SHELL_LOG_BUF_EX1_DATA_LEN)
 	{
-		data_len = vsnprintf((char *)&cmd_line_buf.cmd_ind_buff[0], buf_len, format, ap);
-		if ((data_len != 0) && (cmd_line_buf.cmd_ind_buff[data_len - 1] == '\n'))
+		if(co_list_cnt(&buff_ex1_free_list) > 0)
 		{
-			if (data_len == 1 || cmd_line_buf.cmd_ind_buff[data_len - 2] != '\r')
+			head_list = &buff_ex1_free_list;
+			buf_type = SHELL_LOG_BUF_TYPE_STATIC_1;
+			buf_len = SHELL_LOG_BUF_EX1_DATA_LEN;
+		}
+		else if(co_list_cnt(&buff_ex2_free_list) > 0)
+		{
+			head_list = &buff_ex2_free_list;
+			buf_type = SHELL_LOG_BUF_TYPE_STATIC_2;
+			buf_len = SHELL_LOG_BUF_EX2_DATA_LEN;
+		}
+		else
+		{
+			if(flag)
 			{
-				cmd_line_buf.cmd_ind_buff[data_len] = '\n';
-				cmd_line_buf.cmd_ind_buff[data_len - 1] = '\r';
-				data_len++;
+				if(co_list_cnt(&buff_ex3_free_list) > MIN_ALLOC_BUF_EX3_NUM)
+				{
+					head_list = &buff_ex3_free_list;
+					buf_type = SHELL_LOG_BUF_TYPE_STATIC_3;
+					buf_len = SHELL_LOG_BUF_EX3_DATA_LEN;
+				}
+			}
+			else
+			{
+				head_list = &buff_ex3_free_list;
+				buf_type = SHELL_LOG_BUF_TYPE_STATIC_3;
+				buf_len = SHELL_LOG_BUF_EX3_DATA_LEN;
 			}
 		}
-		cmd_ind_out(cmd_line_buf.cmd_ind_buff, data_len);
+	}
+	else if (data_len_tmp <= SHELL_LOG_BUF_EX2_DATA_LEN)
+	{
+		if(co_list_cnt(&buff_ex2_free_list) > 0)
+		{
+			head_list = &buff_ex2_free_list;
+			buf_type = SHELL_LOG_BUF_TYPE_STATIC_2;
+			buf_len = SHELL_LOG_BUF_EX2_DATA_LEN;
+		}
+		else
+		{
+			if(flag)
+			{
+				if(co_list_cnt(&buff_ex3_free_list) > MIN_ALLOC_BUF_EX3_NUM)
+				{
+					head_list = &buff_ex3_free_list;
+					buf_type = SHELL_LOG_BUF_TYPE_STATIC_3;
+					buf_len = SHELL_LOG_BUF_EX3_DATA_LEN;
+				}
+			}
+			else
+			{
+				head_list = &buff_ex3_free_list;
+				buf_type = SHELL_LOG_BUF_TYPE_STATIC_3;
+				buf_len = SHELL_LOG_BUF_EX3_DATA_LEN;
+			}
+		}
 	}
 	else
 	{
-		char *ptr = (char *)os_malloc(data_len_tmp);
-		int n = 0;
-		if (NULL == ptr)
+		if(flag)
 		{
-			log_hint_out();
-			return; // bFALSE;
-
-		}
-		data_len = vsnprintf(ptr, data_len_tmp, format, ap);
-		if ((data_len != 0) && (ptr[data_len - 1] == '\n'))
-		{
-			if (data_len == 1 || ptr[data_len - 2] != '\r')
+			if(co_list_cnt(&buff_ex3_free_list) > MIN_ALLOC_BUF_EX3_NUM)
 			{
-				ptr[data_len] = '\n';
-				ptr[data_len - 1] = '\r';
-				data_len++;
+				if (data_len_tmp <= SHELL_LOG_BUF_EX3_DATA_LEN)
+				{
+					head_list = &buff_ex3_free_list;
+					buf_type = SHELL_LOG_BUF_TYPE_STATIC_3;
+					buf_len = SHELL_LOG_BUF_EX3_DATA_LEN;
+				}
 			}
 		}
-
-		int cpy_len;
-
-		while (data_len > 0)
+		else
 		{
-			if (data_len > buf_len)
-			cpy_len = buf_len;
-			else
-			cpy_len = data_len;
-			cmd_ind_out(ptr + n * buf_len, cpy_len);
-			data_len -= cpy_len;
-			n++;
-			rtos_get_semaphore(&cmd_line_buf.ind_buf_semaphore, SHELL_WAIT_OUT_TIME);
+			head_list = &buff_ex3_free_list;
+			buf_type = SHELL_LOG_BUF_TYPE_STATIC_3;
+			buf_len = SHELL_LOG_BUF_EX3_DATA_LEN;
 		}
-		rtos_set_semaphore(&cmd_line_buf.ind_buf_semaphore);
-		os_free(ptr);
-		ptr = NULL;
+	}
+
+	if(head_list)
+	{
+		if (!co_list_is_empty(head_list))
+		{
+			u32  int_mask = shell_task_enter_critical();
+			node = (print_node_t *)co_list_pop_front(head_list);
+			shell_task_exit_critical(int_mask);
+			node->buf_type = buf_type;
+			node->buf_len = buf_len;
+		}
+	}
+
+	return node;
+}
+
+static void shell_cmd_free_buf_ex(print_node_t *node)
+{
+	if(node)
+	{
+		struct co_list *head_list = NULL;
+		if(node->buf_type == SHELL_LOG_BUF_TYPE_STATIC_1)
+		{
+			head_list = &buff_ex1_free_list;
+		}
+		else if(node->buf_type == SHELL_LOG_BUF_TYPE_STATIC_2)
+		{
+			head_list = &buff_ex2_free_list;
+		}
+		else if(node->buf_type == SHELL_LOG_BUF_TYPE_STATIC_3)
+		{
+			head_list = &buff_ex3_free_list;
+		}
+
+		BK_ASSERT(head_list != NULL);
+		if(head_list)
+		{
+			u32  int_mask = shell_task_enter_critical();
+			co_list_push_back(head_list, &node->hdr);
+			shell_task_exit_critical(int_mask);
+		}
+	}
+}
+
+// Modified by TUYA Start
+void shell_cmd_ind_out_ex(char *prefix, const char *format, va_list ap, int data_len_tmp)
+{
+	print_node_t *node = NULL;
+
+	extern uint32_t platform_is_in_interrupt_context( void );
+	if (platform_is_in_interrupt_context())
+	{
+		node = shell_cmd_alloc_buf_ex(data_len_tmp, 0);
+		if((node) && (data_len_tmp > node->buf_len))
+		{
+			data_len_tmp = node->buf_len;
+		}
+	}
+	else
+	{
+		node = shell_cmd_alloc_buf_ex(data_len_tmp, 1);
+		if(node == NULL)
+		{
+			uint16_t mem_bytes = 0;
+			bk_wifi_get_min_rsv_mem(&mem_bytes);
+			if (rtos_get_free_heap_size() > (mem_bytes *2))
+			{
+				node = (print_node_t *)os_malloc(sizeof(print_node_t) + data_len_tmp + 4);
+				if(node)
+				{
+					node->buf_type = SHELL_LOG_BUF_TYPE_ALLOC;
+				}
+			}
+		}
+	}
+
+	if(node == NULL)
+	{
+		//log_hint_out();
+		goto ind_out_exit;
+	}
+
+	char *ptr = (char *)(node + 1);
+	int data_len = 0;
+
+	// Modified by TUYA Start
+	#ifdef prefix_debug
+	if(prefix != NULL)
+	{
+		strcpy((char *)&ptr[0], prefix);
+		int prefix_len = strlen((char *)prefix);
+		data_len_tmp -= prefix_len;
+		data_len += prefix_len;
+	}
+	#endif
+	// Modified by TUYA End
+
+	int len = vsnprintf(&ptr[data_len], data_len_tmp, format, ap);
+	if(len > data_len_tmp)
+	{
+		data_len += data_len_tmp;
+		// we have 2bytes more space
+		ptr[data_len] = '\r';
+		ptr[data_len+1] = '\n';
+		data_len += 2;
+	}
+	else
+	{
+		data_len += len;
+	}
+
+	if ((data_len != 0) && (ptr[data_len - 1] == '\n'))
+	{
+		if (data_len == 1 || ptr[data_len - 2] != '\r')
+		{
+			ptr[data_len] = '\n';
+			ptr[data_len - 1] = '\r';
+			data_len++;
+		}
+	}
+	node->buf_len = data_len;
+
+	u32  int_mask = shell_task_enter_critical();
+	co_list_push_back(&cmd_line_buf.pending_list, &node->hdr);
+	shell_task_exit_critical(int_mask);
+
+ind_out_exit:
+	if (!co_list_is_empty(&cmd_line_buf.pending_list))
+	{
+		if(0 == platform_local_irq_disabled())
+		{
+			set_shell_event(SHELL_EVENT_TX_SND);
+		}
 	}
 }
 // Modified by TUYA End

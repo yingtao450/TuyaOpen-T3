@@ -34,7 +34,7 @@ extern "C" {
 
 // Modified by TUYA Start
 //#define UART_BAUD_RATE               UART_BAUDRATE_115200
-#define UART_BAUD_RATE               UART_BAUDRATE_2000000
+#define UART_BAUD_RATE               UART_BAUDRATE_460800
 // Modified by TUYA End
 
 #define UART_CLOCK_FREQ_10M          10000000

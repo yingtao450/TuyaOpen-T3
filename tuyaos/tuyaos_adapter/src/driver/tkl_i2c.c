@@ -6,12 +6,9 @@
  *
  */
 
-// --- BEGIN: user defines and implements ---
-#include "tkl_output.h"
 #include "tkl_gpio.h"
 #include "tal_log.h"
 #include "tkl_i2c.h"
-// --- END: user defines and implements ---
 
 /***********************************************************
 ************************macro define************************
@@ -60,12 +57,21 @@ typedef struct {
 #define SR_I2C_FLAG_NO_READ_ACK (1u << 5)   // read without ACK
 #define SR_I2C_FLAG_NO_ADDR     (1u << 6)   // massage wuthout address
 
+extern void bk_printf(const char *fmt, ...); 
+
 /***********************************************************
 ***********************variable define**********************
 ***********************************************************/
 static volatile uint32_t delay_us = 10;
-static SR_I2C_GPIO_T sg_i2c_pin[TUYA_I2C_NUM_MAX - 1] = {{TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}};
-static SR_I2C_CONFIG_T sg_i2c_cfg[TUYA_I2C_NUM_MAX - 1] = {0};
+static SR_I2C_GPIO_T sg_i2c_pin[TUYA_I2C_NUM_MAX] = {
+    {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, 
+    {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, 
+    {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, 
+    {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, 
+    {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}, 
+    {TUYA_GPIO_NUM_MAX, TUYA_GPIO_NUM_MAX}
+};
+static SR_I2C_CONFIG_T sg_i2c_cfg[TUYA_I2C_NUM_MAX] = {0};
 
 /***********************************************************
 ***********************function define**********************
@@ -232,7 +238,7 @@ static BOOL_T __sw_i2c_get_ack(SR_I2C_GPIO_T i2c_pin)
     while (I2C_SDA_READ()) {
         if (timeout_count >= delay_us) {
             __sw_i2c_stop(i2c_pin);
-            tkl_log_output("wait ack timeout\n");
+            bk_printf("wait ack timeout\n");
             return FALSE;
         }
         I2C_DELAY(1);
@@ -442,18 +448,17 @@ void __tkl_i2c_set_sda_pin(TUYA_I2C_NUM_E port, const TUYA_PIN_NAME_E sda_pin)
  */
 OPERATE_RET tkl_i2c_init(uint8_t port, const TUYA_IIC_BASE_CFG_T *cfg)
 {
-    // --- BEGIN: user implements ---
     if (port >= TUYA_I2C_NUM_MAX) {
         return OPRT_INVALID_PARM;
     }
 
     if ((sg_i2c_pin[port].scl == TUYA_GPIO_NUM_MAX) || (sg_i2c_pin[port].sda == TUYA_GPIO_NUM_MAX)) {
-        tkl_log_output("i2c pin not set, please use tkl_io_pinmux_config first!\n");
+        bk_printf("i2c pin not set, please use tkl_io_pinmux_config first!\n");
         return OPRT_INVALID_PARM;
     }
 
     if (cfg->role == TUYA_IIC_MODE_SLAVE) {
-        tkl_log_output("i2c slave mode not supported!\n");
+        bk_printf("i2c slave mode not supported!\n");
         return OPRT_NOT_SUPPORTED;
     }
 
@@ -473,7 +478,6 @@ OPERATE_RET tkl_i2c_init(uint8_t port, const TUYA_IIC_BASE_CFG_T *cfg)
     __sw_i2c_init(sg_i2c_pin[port]);
 
     return OPRT_OK;
-    // --- END: user implements ---
 }
 
 /**
@@ -485,7 +489,6 @@ OPERATE_RET tkl_i2c_init(uint8_t port, const TUYA_IIC_BASE_CFG_T *cfg)
  */
 OPERATE_RET tkl_i2c_deinit(uint8_t port)
 {
-    // --- BEGIN: user implements ---
     if (port >= TUYA_I2C_NUM_MAX) {
         return OPRT_INVALID_PARM;
     }
@@ -496,7 +499,6 @@ OPERATE_RET tkl_i2c_deinit(uint8_t port)
     sg_i2c_pin[port].sda = TUYA_GPIO_NUM_MAX;
 
     return OPRT_OK;
-    // --- END: user implements ---
 }
 
 /**
@@ -510,9 +512,7 @@ OPERATE_RET tkl_i2c_deinit(uint8_t port)
  */
 OPERATE_RET tkl_i2c_irq_init(TUYA_I2C_NUM_E port, TUYA_I2C_IRQ_CB cb)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }
 
 /**
@@ -524,9 +524,7 @@ OPERATE_RET tkl_i2c_irq_init(TUYA_I2C_NUM_E port, TUYA_I2C_IRQ_CB cb)
  */
 OPERATE_RET tkl_i2c_irq_enable(TUYA_I2C_NUM_E port)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }
 
 /**
@@ -538,9 +536,7 @@ OPERATE_RET tkl_i2c_irq_enable(TUYA_I2C_NUM_E port)
  */
 OPERATE_RET tkl_i2c_irq_disable(TUYA_I2C_NUM_E port)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }
 
 /**
@@ -555,11 +551,10 @@ OPERATE_RET tkl_i2c_irq_disable(TUYA_I2C_NUM_E port)
  */
 OPERATE_RET tkl_i2c_master_send(TUYA_I2C_NUM_E port, uint16_t dev_addr, const void *data, uint32_t size, BOOL_T xfer_pending)
 {
-    // --- BEGIN: user implements ---
     int ret;
 
     if (port >= TUYA_I2C_NUM_MAX) {
-        tkl_log_output("i2c port %d is invalid\n", port);
+        bk_printf("i2c port %d is invalid\n", port);
         return OPRT_INVALID_PARM;
     }
 
@@ -569,7 +564,6 @@ OPERATE_RET tkl_i2c_master_send(TUYA_I2C_NUM_E port, uint16_t dev_addr, const vo
         return OPRT_COM_ERROR;
 
     return OPRT_OK;
-    // --- END: user implements ---
 }
 
 /**
@@ -584,10 +578,9 @@ OPERATE_RET tkl_i2c_master_send(TUYA_I2C_NUM_E port, uint16_t dev_addr, const vo
  */
 OPERATE_RET tkl_i2c_master_receive(TUYA_I2C_NUM_E port, uint16_t dev_addr, void *data, uint32_t size, BOOL_T xfer_pending)
 {
-    // --- BEGIN: user implements ---
     int ret;
     if (port >= TUYA_I2C_NUM_MAX) {
-        tkl_log_output("i2c port %d is invalid\n", port);
+        bk_printf("i2c port %d is invalid\n", port);
         return OPRT_INVALID_PARM;
     }
     
@@ -597,7 +590,6 @@ OPERATE_RET tkl_i2c_master_receive(TUYA_I2C_NUM_E port, uint16_t dev_addr, void 
         return OPRT_COM_ERROR;
 
     return OPRT_OK;
-    // --- END: user implements ---
 }
 /**
  * @brief i2c slave
@@ -609,9 +601,7 @@ OPERATE_RET tkl_i2c_master_receive(TUYA_I2C_NUM_E port, uint16_t dev_addr, void 
  */
 OPERATE_RET tkl_i2c_set_slave_addr(TUYA_I2C_NUM_E port, uint16_t dev_addr)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }
 
 /**
@@ -625,9 +615,7 @@ OPERATE_RET tkl_i2c_set_slave_addr(TUYA_I2C_NUM_E port, uint16_t dev_addr)
 
 OPERATE_RET tkl_i2c_slave_send(TUYA_I2C_NUM_E port, const void *data, uint32_t size)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }
 
 /**
@@ -641,9 +629,7 @@ OPERATE_RET tkl_i2c_slave_send(TUYA_I2C_NUM_E port, const void *data, uint32_t s
 
 OPERATE_RET tkl_i2c_slave_receive(TUYA_I2C_NUM_E port, void *data, uint32_t size)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---    
 }
 
 /**
@@ -655,9 +641,7 @@ OPERATE_RET tkl_i2c_slave_receive(TUYA_I2C_NUM_E port, void *data, uint32_t size
  */
 OPERATE_RET tkl_i2c_get_status(TUYA_I2C_NUM_E port, TUYA_IIC_STATUS_T *status)
 {
-    // --- BEGIN: user implements ---
-    return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---    
+    return OPRT_NOT_SUPPORTED; 
 }
 
 /**
@@ -669,9 +653,7 @@ OPERATE_RET tkl_i2c_get_status(TUYA_I2C_NUM_E port, TUYA_IIC_STATUS_T *status)
  */
 OPERATE_RET  tkl_i2c_reset(TUYA_I2C_NUM_E port)
 {
-    // --- BEGIN: user implements ---
     return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }
 
 /**
@@ -687,9 +669,7 @@ OPERATE_RET  tkl_i2c_reset(TUYA_I2C_NUM_E port)
  */
 int32_t tkl_i2c_get_data_count(TUYA_I2C_NUM_E port)
 {
-    // --- BEGIN: user implements ---
-    return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---    
+    return OPRT_NOT_SUPPORTED; 
 }
 
 /**
@@ -701,7 +681,5 @@ int32_t tkl_i2c_get_data_count(TUYA_I2C_NUM_E port)
  */
 OPERATE_RET tkl_i2c_ioctl(TUYA_I2C_NUM_E port, uint32_t cmd,  void *args)
 {
-    // --- BEGIN: user implements ---
-    return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---    
+    return OPRT_NOT_SUPPORTED; 
 }

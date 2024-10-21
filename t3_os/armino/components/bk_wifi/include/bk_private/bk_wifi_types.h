@@ -273,9 +273,11 @@ typedef struct wlan_sta_ap {
 typedef struct wlan_sta_scan_param {
 	uint8_t scan_only;    /* do scan only */
 	uint8_t scan_passive; /* passive scan */
+	uint8_t scan_cc;      /* country code scan */
 	uint8_t scan_ssid;    /* Scan SSID of configured network with Probe Requests */
 	uint8_t num_ssids;
 	wlan_ssid_t ssids[WLAN_SCAN_SSID_MAX];
+	uint32_t id;
 } wlan_sta_scan_param_t;
 
 /**
@@ -667,7 +669,7 @@ typedef struct UdpHdr {
 #define PACKET_AC_BK (1<<PACKET_AC_BASE)
 #define PACKET_AC_BE (1<<(PACKET_AC_BASE+1))
 #define PACKET_AC_VI (1<<(PACKET_AC_BASE+2))
-#define PACKET_AC_VO (1<<(PACKET_AC_BASE+3))  
+#define PACKET_AC_VO (1<<(PACKET_AC_BASE+3))
 
 #define RAW_TX_AC                   AC_VO
 #define RAW_TX_AC_TIMEOUT_MS        50

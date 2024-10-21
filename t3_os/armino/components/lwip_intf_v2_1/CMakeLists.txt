@@ -71,6 +71,13 @@ if (CONFIG_ETH)
 	)
 endif()
 
+# SPI Ethernet
+if (CONFIG_SPI_ETH)
+	list(APPEND srcs
+	lwip-2.1.2/port/lwip_hooks.c
+	)
+endif()
+
 else()
 
 if (CONFIG_SYS_CPU1)

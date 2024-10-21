@@ -645,24 +645,6 @@ static void atsvr_rx_wakeup(int gpio_id)
 	}
 }
 
-static uint32_t uart_id_to_pm_uart_id(uint32_t uart_id)
-{
-	switch (uart_id)
-	{
-		case UART_ID_0:
-			return PM_DEV_ID_UART1;
-
-		case UART_ID_1:
-			return PM_DEV_ID_UART2;
-
-		case UART_ID_2:
-			return PM_DEV_ID_UART3;
-
-		default:
-			return PM_DEV_ID_UART1;
-	}
-}
-
 static void atsvr_task_init(void)
 {
 	//u16		i;

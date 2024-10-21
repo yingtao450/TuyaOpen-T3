@@ -259,6 +259,9 @@ bk_err_t rtos_get_semaphore( beken_semaphore_t* semaphore, uint32_t timeout_ms )
 
     if(time != 0)
     {
+         if(platform_local_irq_disabled())
+            bk_printf("rtos_get_semphore caller 0x%x\r\n",__builtin_return_address(0));
+
         RTOS_ASSERT_INT_ENABLED_WITH_SCHEDULER();
         RTOS_ASSERT_TASK_CONTEXT();
     }

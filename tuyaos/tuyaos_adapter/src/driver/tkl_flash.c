@@ -1,6 +1,6 @@
 #include "tkl_flash.h"
 
-#include <common/bk_typedef.h>
+#include "tuya_cloud_types.h"
 #include "driver/flash.h"
 
 typedef struct
@@ -137,25 +137,12 @@ static unsigned int __uni_flash_is_protect_all(void)
 */
 OPERATE_RET tkl_flash_write(uint32_t addr, const uint8_t *src, uint32_t size)
 {
-    // unsigned int protect_flag;
-    // unsigned int param;
-
     if (NULL == src) {
         return OPRT_INVALID_PARM;
     }
 
     /* TODO: need to consider whether to use locks at the TKL layer*/
     flash_lock();
-
-#if 0
-    //解保护
-    protect_flag = __uni_flash_is_protect_all();
-
-    if (protect_flag) {
-        param = FLASH_PROTECT_HALF;
-        bk_flash_set_protect_type(param);
-    }
-#endif
 
     bk_flash_set_protect_type(FLASH_PROTECT_NONE);
     bk_flash_write_bytes(addr, (const uint8_t *)src, size);
@@ -181,25 +168,11 @@ OPERATE_RET tkl_flash_erase(uint32_t addr, uint32_t size)
 {
     unsigned short start_sec = (addr / PARTITION_SIZE);
     unsigned short end_sec = ((addr + size - 1) / PARTITION_SIZE);
-    // unsigned int status;
     unsigned int i = 0;
     unsigned int sector_addr;
-    // DD_HANDLE flash_handle;
-    // unsigned int  param;
-    // unsigned int protect_flag;
 
     /* TODO: need to consider whether to use locks at the TKL layer*/
     flash_lock();
-
-    // TODO flash unprotect
-#if 0
-    //解保护
-    protect_flag = __uni_flash_is_protect_all();
-    if (protect_flag) {
-        param = FLASH_PROTECT_HALF;
-        bk_flash_set_protect_type(param);
-    }
-#endif
 
     bk_flash_set_protect_type(FLASH_PROTECT_NONE);
     for (i = start_sec; i <= end_sec; i++) {
@@ -207,15 +180,6 @@ OPERATE_RET tkl_flash_erase(uint32_t addr, uint32_t size)
         bk_flash_erase_sector(sector_addr);
     }
     bk_flash_set_protect_type(FLASH_UNPROTECT_LAST_BLOCK);
-
-#if 0
-    protect_flag = __uni_flash_is_protect_all();
-    if(protect_flag)
-    {
-        param = FLASH_PROTECT_ALL;
-        bk_flash_set_protect_type(param);
-    }
-#endif
 
     /* TODO: need to consider whether to use locks at the TKL layer*/
     flash_unlock();

@@ -40,6 +40,8 @@ static void pwm1_isr(void);
 #define PWM_CHAN_ID_TO_HW_CHAN_ID(chan) (chan % SOC_PWM_CHAN_NUM_PER_UNIT)
 #define PWM_GROUP_TO_UNIT_ID(group)     (group / SOC_PWM_GROUP_NUM)
 #define PWM_GROUP_TO_HW_GROUP_ID(group) (group % SOC_PWM_GROUP_NUM)
+#define PWM_INIT_LEVEL_HIGH             1
+#define PWM_INIT_LEVEL_LOW              0
 
 typedef struct {
 	pwm_chan_t chan1;
@@ -58,7 +60,7 @@ typedef struct {
 	//Important notes: currently no lock for bits
 	//Concurrently operation is NOT allowed!!!s_pwm_pin_id_map
 	uint32_t chan_init_bits;
-	//pwm_group_info_t groups[PWM_GROUP_NUM_PER_UNIT];
+	uint32_t chan_init_signal_level;
 #if CONFIG_PWM_PM_CB_SUPPORT
 	uint32_t pm_backup[PWM_PM_BACKUP_REG_NUM];
 	uint8_t pm_bakeup_is_valid;
@@ -357,20 +359,13 @@ static void pwm_adjust_init_signal_via_duty(pwm_chan_t sw_ch, uint32_t period,
 static inline bool pwm_driver_duty_is_valid(uint32_t period, uint32_t duty1, uint32_t duty2,
 										uint32_t duty3)
 {
-	if (period <= 1 || duty1 <= 1) {
-		PWM_LOGE("period and duty1 must be more than 1\r\n");
+	if (period == 0) {
+		PWM_LOGE("period must be more than 1\r\n");
 		return false;
 	}
 
 	//Not consider (duty1 + duty2 + duty3) overflow
 	if ((duty1 + duty2 + duty3) > period)
-		return false;
-
-	//Not consier (duty2 + duty3) overflow
-	if ((duty1 == 0) && ((duty2 + duty3) != 0))
-		return false;
-
-	if ((duty2 == 0) && (duty3 != 0))
 		return false;
 
 	return true;
@@ -474,13 +469,13 @@ static void pwm_group_output_mode_config(const pwm_group_init_config_t *config, 
 
 static void pwm_set_channel_config(pwm_ch_t sw_ch, const pwm_period_duty_config_t *config)
 {
-	const uint32_t psc = 25;
 	pwm_id_t id;
 	pwm_ch_t hw_ch;
 
 	pwm_sw_ch_to_hw_id_ch(sw_ch, &id, &hw_ch);
 
-	PWM_LOGD("[%s] period_cycle:%d, duty_cycle:%d, duty2_cycle:%d, duty3_cycle:%d\r\n", __func__,
+	PWM_LOGD("hw:%d, period_cycle:%d, duty_cycle:%d, duty2_cycle:%d, duty3_cycle:%d\r\n",
+			hw_ch,
 			config->period_cycle,
 			config->duty_cycle,
 			config->duty2_cycle,
@@ -492,14 +487,15 @@ static void pwm_set_channel_config(pwm_ch_t sw_ch, const pwm_period_duty_config_
 			pwm_hal_set_ccr1_value(&s_pwm[id].hal, config->duty_cycle);
 			pwm_hal_set_ccr2_value(&s_pwm[id].hal, config->duty2_cycle);
 			pwm_hal_set_ccr3_value(&s_pwm[id].hal, config->duty3_cycle);
-			pwm_hal_set_prescaler_psc1(&s_pwm[id].hal, psc);
+			pwm_hal_set_prescaler_psc1(&s_pwm[id].hal, config->psc);
 			pwm_hal_set_pwm_ccmr_ch1e(&s_pwm[id].hal, true);
 			break;
 		case 1:
-			pwm_hal_set_cr3_chae(&s_pwm[id].hal, 1);
-			pwm_hal_set_prescaler2_psc4(&s_pwm[id].hal, psc);
-			pwm_hal_set_tim4_arr_tim4_arr(&s_pwm[id].hal, config->period_cycle - 1);
-			pwm_hal_set_ccra_ccra(&s_pwm[id].hal, config->duty_cycle);
+			pwm_hal_set_tim1_arr_tim1_arr(&s_pwm[id].hal, config->period_cycle - 1);
+			pwm_hal_set_ccr1_value(&s_pwm[id].hal, config->duty_cycle);
+			pwm_hal_set_ccr2_value(&s_pwm[id].hal, config->duty2_cycle);
+			pwm_hal_set_ccr3_value(&s_pwm[id].hal, config->duty3_cycle);
+			pwm_hal_set_prescaler_psc1(&s_pwm[id].hal, config->psc);
 			pwm_hal_set_pwm_ccmr_ch2e(&s_pwm[id].hal, true);
 			break;
 		case 2:
@@ -507,7 +503,7 @@ static void pwm_set_channel_config(pwm_ch_t sw_ch, const pwm_period_duty_config_
 			pwm_hal_set_ccr4_value(&s_pwm[id].hal, config->duty_cycle);
 			pwm_hal_set_ccr5_value(&s_pwm[id].hal, config->duty2_cycle);
 			pwm_hal_set_ccr6_value(&s_pwm[id].hal, config->duty3_cycle);
-			pwm_hal_set_prescaler_psc2(&s_pwm[id].hal, psc);
+			pwm_hal_set_prescaler_psc2(&s_pwm[id].hal, config->psc);
 			pwm_hal_set_pwm_ccmr_ch3e(&s_pwm[id].hal, true);
 			break;
 		case 3:
@@ -515,7 +511,7 @@ static void pwm_set_channel_config(pwm_ch_t sw_ch, const pwm_period_duty_config_
 			pwm_hal_set_ccr4_value(&s_pwm[id].hal, config->duty_cycle);
 			pwm_hal_set_ccr5_value(&s_pwm[id].hal, config->duty2_cycle);
 			pwm_hal_set_ccr6_value(&s_pwm[id].hal, config->duty3_cycle);
-			pwm_hal_set_prescaler_psc2(&s_pwm[id].hal, psc);
+			pwm_hal_set_prescaler_psc2(&s_pwm[id].hal, config->psc);
 			pwm_hal_set_pwm_ccmr_ch4e(&s_pwm[id].hal, true);
 			break;
 		case 4:
@@ -523,7 +519,7 @@ static void pwm_set_channel_config(pwm_ch_t sw_ch, const pwm_period_duty_config_
 			pwm_hal_set_ccr7_value(&s_pwm[id].hal, config->duty_cycle);
 			pwm_hal_set_ccr8_value(&s_pwm[id].hal, config->duty2_cycle);
 			pwm_hal_set_ccr9_value(&s_pwm[id].hal, config->duty3_cycle);
-			pwm_hal_set_prescaler_psc3(&s_pwm[id].hal, psc);
+			pwm_hal_set_prescaler_psc3(&s_pwm[id].hal, config->psc);
 			pwm_hal_set_pwm_ccmr_ch5e(&s_pwm[id].hal, true);
 			break;
 		case 5:
@@ -531,7 +527,7 @@ static void pwm_set_channel_config(pwm_ch_t sw_ch, const pwm_period_duty_config_
 			pwm_hal_set_ccr7_value(&s_pwm[id].hal, config->duty_cycle);
 			pwm_hal_set_ccr8_value(&s_pwm[id].hal, config->duty2_cycle);
 			pwm_hal_set_ccr9_value(&s_pwm[id].hal, config->duty3_cycle);
-			pwm_hal_set_prescaler_psc3(&s_pwm[id].hal, psc);
+			pwm_hal_set_prescaler_psc3(&s_pwm[id].hal, config->psc);
 			pwm_hal_set_pwm_ccmr_ch6e(&s_pwm[id].hal, true);
 			break;
 		default:
@@ -570,29 +566,47 @@ bk_err_t bk_pwm_init(pwm_chan_t sw_ch, const pwm_init_config_t *config)
 #endif
 
 	pwm_chan_init_common(sw_ch);
+	pwm_hal_set_init_signal_low(&s_pwm[id].hal, hw_ch);
+	pwm_hal_set_new_config_way(&s_pwm[id].hal, hw_ch, 1);
 
 	/* duty ratio is 0% */
 	if (config->duty_cycle == 0) {
-		pwm_hal_set_init_signal_low(&s_pwm[id].hal, hw_ch);
+		s_pwm[id].chan_init_signal_level &= ~BIT(hw_ch);
 		pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 4);
+		pwm_config.period_cycle = config->period_cycle;
+		pwm_config.duty_cycle = 0;
+		pwm_config.duty2_cycle = 0;
+		pwm_config.duty3_cycle = 0;
+		pwm_config.psc = config->psc;
+		pwm_set_channel_config(sw_ch, &pwm_config);
 		return BK_OK;
 	}
 
 	/* duty ratio is 100% */
 	if (config->duty_cycle ==  config->period_cycle) {
-		pwm_hal_set_init_signal_high(&s_pwm[id].hal, hw_ch);
-		pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 4);
+		s_pwm[id].chan_init_signal_level |= BIT(hw_ch);
+		pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 2);
+		pwm_config.period_cycle = config->period_cycle;
+		pwm_config.duty_cycle = 0;
+		pwm_config.duty2_cycle = 0;
+		pwm_config.duty3_cycle = 0;
+		pwm_config.psc = config->psc;
+		pwm_set_channel_config(sw_ch, &pwm_config);
 		return BK_OK;
 	}
 
-	pwm_hal_set_init_signal_low(&s_pwm[id].hal, hw_ch);
-	pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 3);
+	s_pwm[id].chan_init_signal_level &= ~BIT(hw_ch);
+	pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 1);
 	pwm_config.period_cycle = config->period_cycle;
 	pwm_config.duty_cycle = config->period_cycle - config->duty_cycle;
-	pwm_config.duty2_cycle = 0;
+	pwm_config.duty2_cycle = config->period_cycle;
 	pwm_config.duty3_cycle = 0;
+	pwm_config.psc = config->psc;
+	/* CCR cannot be set to 1 */
+	if (pwm_config.duty_cycle == 1) {
+		pwm_config.duty_cycle = 2;
+	}
 	pwm_set_channel_config(sw_ch, &pwm_config);
-	pwm_hal_set_single_chan_tim_enable(&s_pwm[id].hal, hw_ch, 1);
 
 	return BK_OK;
 }
@@ -601,9 +615,8 @@ bk_err_t bk_pwm_deinit(pwm_chan_t sw_ch)
 {
 	pwm_id_t id;
 	pwm_ch_t hw_ch;
+	pwm_period_duty_config_t pwm_config = {0};
 
-	bk_pwm_stop(sw_ch);
-	pwm_chan_deinit_common(sw_ch);
 	pwm_sw_ch_to_hw_id_ch(sw_ch, &id, &hw_ch);
 
 #if CONFIG_PWM_PM_CB_SUPPORT
@@ -615,7 +628,14 @@ bk_err_t bk_pwm_deinit(pwm_chan_t sw_ch)
 		bk_pm_module_vote_power_ctrl(PM_POWER_SUB_MODULE_NAME_BAKP_PWM1, PM_POWER_MODULE_STATE_OFF);
 	}
 #endif
-	pwm_hal_set_single_chan_tim_enable(&s_pwm[id].hal, hw_ch, 0);
+
+	pwm_config.period_cycle = 1;
+	bk_pwm_set_period_duty(sw_ch, &pwm_config);
+	extern void delay_ms(UINT32 ms);
+	delay_ms(1);
+	bk_pwm_stop(sw_ch);
+	pwm_hal_set_single_chan_tim_enable(&s_pwm[id].hal, hw_ch, false);
+	s_pwm[id].chan_init_bits &= ~BIT(hw_ch);
 
 	return BK_OK;
 }
@@ -629,6 +649,7 @@ bk_err_t bk_pwm_start(pwm_chan_t sw_ch)
 	PWM_RETURN_ON_CHAN_NOT_INIT(id, hw_ch);
 	PWM_PM_CHECK_RESTORE(id);
 	pwm_hal_set_chan_enable(&s_pwm[id].hal, hw_ch, true);
+	pwm_hal_set_single_chan_tim_enable(&s_pwm[id].hal, hw_ch, true);
 
 	return BK_OK;
 }
@@ -705,32 +726,49 @@ bk_err_t bk_pwm_set_period_duty(pwm_chan_t sw_ch, pwm_period_duty_config_t *conf
 	PWM_RETURN_ON_INVALID_CHAN(hw_ch);
 	PWM_RETURN_ON_CHAN_NOT_INIT(id, hw_ch);
 
+	if (!pwm_driver_duty_is_valid(config->period_cycle, config->duty_cycle,
+		config->duty2_cycle, config->duty3_cycle))
+		return BK_ERR_PWM_PERIOD_DUTY;
+
 	pwm_hal_set_new_config_way(&s_pwm[id].hal, hw_ch, 1);
 
 	/* duty ratio is 0% */
 	if (config->duty_cycle == 0) {
-		pwm_hal_set_init_signal_low(&s_pwm[id].hal, hw_ch);
+		s_pwm[id].chan_init_signal_level &= ~BIT(hw_ch);
 		pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 4);
+		config->duty_cycle = 0;
+		config->duty2_cycle = 0;
+		config->duty3_cycle = 0;
+		pwm_set_channel_config(sw_ch, config);
 		return BK_OK;
 	}
 
 	/* duty ratio is 100% */
 	if (config->duty_cycle ==  config->period_cycle) {
-		pwm_hal_set_init_signal_high(&s_pwm[id].hal, hw_ch);
-		pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 4);
+		s_pwm[id].chan_init_signal_level |= BIT(hw_ch);
+		pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 2);
+		config->duty_cycle = 0;
+		config->duty2_cycle = 0;
+		config->duty3_cycle = 0;
+		pwm_set_channel_config(sw_ch, config);
 		return BK_OK;
 	}
 
-	pwm_hal_set_init_signal_low(&s_pwm[id].hal, hw_ch);
-	pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 3);
-
-	uint32_t tim_arr = pwm_hal_get_tim_arr(&s_pwm[id].hal, hw_ch);
-	if (tim_arr == (config->period_cycle - 1)) {
+	if (s_pwm[id].chan_init_signal_level & BIT(hw_ch)) {
+		config->duty2_cycle = config->period_cycle;
+		config->duty3_cycle = 0;
+	} else {
 		config->duty_cycle = config->period_cycle - config->duty_cycle;
+		config->duty2_cycle = config->period_cycle;
+		config->duty3_cycle = 0;
 	}
-	config->duty2_cycle = 0;
-	config->duty3_cycle = 0;
+
+	/* CCR cannot be set to 1 */
+	if (config->duty_cycle == 1) {
+		config->duty_cycle = 2;
+	}
 	pwm_set_channel_config(sw_ch, config);
+	pwm_hal_set_flip_mode(&s_pwm[id].hal, hw_ch, 1);
 
 	return BK_OK;
 }

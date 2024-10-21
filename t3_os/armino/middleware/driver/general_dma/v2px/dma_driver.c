@@ -1182,6 +1182,9 @@ static void dma_isr_common(dma_unit_t dma_unit_id)
             }
         }
         if (dma_hal_is_finish_interrupt_triggered(hal, id)) {
+#if CONFIG_CACHE_ENABLE
+            flush_all_dcache();
+#endif           
             DMA_LOGD("dma_isr ALL FINISH TRIGGERED! id: %d\r\n", id);
             if (s_dma_finish_isr[dma_unit_id][id]) {
                 DMA_LOGD("dma_isr ALL_finish_isr! id: %d\r\n", id);

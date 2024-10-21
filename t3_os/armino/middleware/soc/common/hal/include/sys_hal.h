@@ -112,6 +112,7 @@ void sys_hal_touch_wakeup_enable(uint8_t index);
 void sys_hal_rtc_wakeup_enable(uint32_t value);
 void sys_hal_rtc_ana_wakeup_enable(uint32_t period);
 void sys_hal_gpio_ana_wakeup_enable(uint32_t count, uint32_t index, uint32_t type);
+void sys_hal_gpio_state_switch(bool lock);
 void sys_hal_cpu_clk_div_set(uint32_t core_index, uint32_t value);
 uint32_t sys_hal_cpu_clk_div_get(uint32_t core_index);
 void sys_hal_low_power_hardware_init();

@@ -1,6 +1,5 @@
 #include "tkl_adc.h"
 #include "tkl_memory.h"
-#include "tkl_output.h"
 #include "tuya_error_code.h"
 
 // #include "gpio_pub.h"
@@ -10,6 +9,9 @@
 #include "task.h"
 #include "driver/adc.h"
 #include "common/bk_err.h"
+//#include "middleware/driver/sys_ctrl/sys_driver.h"
+#include "sys_driver.h"
+#include "gpio_driver.h"
 
 /*============================ MACROS ========================================*/
 #define ADC_DEV_NUM         1
@@ -19,8 +21,6 @@
 static uint16_t adc_buf[ADC_BUF_SIZE];
 
 
-//static bk_gpio_t ADC_PIN[] = {GPIO26,GPIO24,GPIO23,GPIO28,GPIO22,GPIO21};
-static adc_config_t adc_desc[ADC_DEV_CHANNEL_SUM];  //ADC结构体
 static uint8_t g_adc_init[ADC_DEV_CHANNEL_SUM] = {FALSE};
 static uint32_t g_adc_ref_voltage[ADC_DEV_CHANNEL_SUM] = {0};
 static uint8_t g_adc_current_ch_num = 0;
@@ -41,15 +41,11 @@ static TUYA_ADC_NUM_E adc[ADC_DEV_NUM] = {TUYA_ADC_NUM_MAX};
 int platform_adc_init(void)
 {
     int  ret;
-    bk_printf("bk_adc_driver_init!!!!!!!!!!!!!\r\n");
-    ret = bk_adc_driver_init();
 
-    if(BK_OK != ret)
-    {
+    ret = bk_adc_driver_init();
+    if(BK_OK != ret) {
         ret = OPRT_COM_ERROR;
-    }
-    else
-    {
+    } else {
         ret = OPRT_OK;
     }
 
@@ -107,11 +103,9 @@ OPERATE_RET tkl_adc_init(TUYA_ADC_NUM_E unit_num, TUYA_ADC_BASE_CFG_T *cfg)
 {
     
     uint8_t cnt = 0;
-    int k = 0;
     static uint8_t is_init = 0;
 
-    if ((unit_num >= ADC_DEV_NUM) || (cfg->ch_nums > ADC_DEV_CHANNEL_SUM))
-    {
+    if ((unit_num >= ADC_DEV_NUM) || (cfg->ch_nums > ADC_DEV_CHANNEL_SUM)) {
         return OPRT_INVALID_PARM;
     }
 
@@ -219,11 +213,11 @@ OPERATE_RET tkl_adc_read_data(TUYA_ADC_NUM_E unit_num, int32_t *buff, uint16_t l
     unsigned char i = 0, j = 0;
     
     if (unit_num > ADC_DEV_NUM-1 && adc[unit_num] != unit_num) {
-        tkl_log_output("error port num: %d:%d\r\n", unit_num, __LINE__);
+        bk_printf("error port num: %d:%d\r\n", unit_num, __LINE__);
         return OPRT_INVALID_PARM;
     }
     if (unit_num * g_adc_read_size[unit_num] > len) {
-        tkl_log_output("param len err:%d !!!\r\n",len);
+        bk_printf("param len err:%d !!!\r\n",len);
         ret = OPRT_COM_ERROR;
     }
 
@@ -242,7 +236,7 @@ OPERATE_RET tkl_adc_read_single_channel(TUYA_ADC_NUM_E unit_num, uint8_t ch_id, 
     int curr_ch_index =  0;
     int time_out = BEKEN_WAIT_FOREVER;
     if(adc[unit_num] != unit_num && unit_num > ADC_DEV_NUM-1) {
-        tkl_log_output("error port num: %d:%d\r\n", unit_num, __LINE__);
+        bk_printf("error port num: %d:%d\r\n", unit_num, __LINE__);
         return OPRT_INVALID_PARM;
     }
     BK_LOG_ON_ERR(bk_adc_acquire());
@@ -307,7 +301,7 @@ OPERATE_RET tkl_adc_read_voltage(TUYA_ADC_NUM_E port_num, int32_t *buff, uint16_
     uint8_t read_cnt = 0;
 
     if(adc[port_num] != port_num && port_num > ADC_DEV_NUM-1) {
-        tkl_log_output("error port num: %d:%d\r\n", port_num, __LINE__);
+        bk_printf("error port num: %d:%d\r\n", port_num, __LINE__);
         return OPRT_INVALID_PARM;
     }
 

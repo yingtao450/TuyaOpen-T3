@@ -2635,10 +2635,12 @@ void sys_hal_early_init(void)
 	uint32_t chip_id = aon_pmu_hal_get_chipid();
 
 	uint32_t val = sys_hal_analog_get(ANALOG_REG5);
+	val &= ~(0x1 << 13); // power up apll then power down to reinit after deep sleep
 	val |= (0x1 << 5) | (0x1 << 3) | (0x1 << 2);
 	sys_hal_analog_set(ANALOG_REG5,val);
 	//donghui20230504: 0:1/7 1:1/5 2:1/3 3:1/1
 	sys_ll_set_ana_reg5_adc_div(1); //tenglong20230627 adc_div=1/5 since volt of GPIO <= 3.3V
+	sys_ll_set_ana_reg5_pwdaudpll(1);
 
 	val = sys_hal_analog_get(ANALOG_REG0);
 	val |= (0x13 << 20) ;

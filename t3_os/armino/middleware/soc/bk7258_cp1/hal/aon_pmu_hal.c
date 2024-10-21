@@ -144,3 +144,18 @@ uint32_t aon_pmu_hal_bias_cal_get()
 {
 	return aon_pmu_ll_get_r7e_cbcal();
 }
+
+uint32_t aon_pmu_hal_gpio_retention_bitmap_get()
+{
+	return (aon_pmu_ll_get_r0() >> 16) & 0xFF;
+}
+
+void aon_pmu_hal_gpio_retention_bitmap_set(uint32_t bitmap)
+{
+	uint32_t aon_pmu_r0 = aon_pmu_ll_get_r0();
+
+	aon_pmu_r0 &= ~(0xFF << 16);
+	aon_pmu_r0 |= (bitmap << 16);
+
+	aon_pmu_ll_set_r0(aon_pmu_r0);
+}

@@ -354,8 +354,8 @@ beken_time_t rtos_get_time(void)
  */
 bk_err_t rtos_delay_milliseconds(uint32_t num_ms)
 {
-	extern void delay(int num);
-	delay(100 * num_ms);
+	extern void bk_delay(int num);
+	bk_delay(100 * num_ms);
 
 	return kNoErr;
 }

@@ -448,8 +448,14 @@ typedef struct {
 	char  password[WIFI_PASSWORD_LEN]; /**< Passord of AP the BK STA is connected */
 } wifi_link_status_t;
 
+
+enum {
+	SCAN_TYPE_CC = 0x1,
+};
+
 typedef struct {
 	char ssid[WIFI_SSID_STR_LEN];     /**< SSID to be scaned */
+	uint8_t flag;
 	uint8_t reserved[16];             /**< Reserved fields, **must be zero** */
 } wifi_scan_config_t;
 
@@ -672,6 +678,8 @@ typedef struct {
 typedef void (* wifi_csi_cb_t)(wifi_csi_info_t **info,uint8_t flag);
 
 typedef bk_err_t (* wifi_bcnmiss_cb_t)(void);
+
+typedef bk_err_t (*wifi_beacon_cc_rxed_t)(void *ctxt, uint8_t *cc, uint8_t cc_len);
 
 /**
  * @}

@@ -37,7 +37,8 @@ typedef enum {
     COUNTRY_CODE_CN,
     COUNTRY_CODE_US,
     COUNTRY_CODE_JP,
-    COUNTRY_CODE_EU
+    COUNTRY_CODE_EU,
+    COUNTRY_CODE_TR
 } COUNTRY_CODE_E;
 
 /* tuya sdk definition of wifi function type */

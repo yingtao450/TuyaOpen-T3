@@ -5,6 +5,8 @@
 
 #if CONFIG_PWM
 
+static void pwm_self_test(pwm_chan_t chan);
+
 static void cli_pwm_help(void)
 {
 	CLI_LOGI("pwm_driver init\n");
@@ -113,6 +115,8 @@ static void cli_pwm_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		BK_LOG_ON_ERR(bk_pwm_set_period_duty(chan, &config));
 		CLI_LOGI("pwm duty, chan=%d period=%x t1=%x t2=%x t3=%x\n", chan, config.period_cycle,
 				 config.duty_cycle, config.duty2_cycle, config.duty3_cycle);
+	} else if (os_strcmp(argv[2], "selftest") == 0) {
+		pwm_self_test(chan);
 	} else {
 		cli_pwm_help();
 		return;
@@ -366,6 +370,46 @@ static void cli_pwm_idle_test_cmd(char *pcWriteBuffer, int xWriteBufferLen, int 
 	} else {
 		cli_pwm_help();
 		return;
+	}
+}
+
+typedef struct {
+	uint32_t freq_hz;
+	float duty_ratio;
+} pwm_test_param_t;
+
+static pwm_test_param_t test_param[] = {
+	{20000, 1.0f},
+	{20000, 0.1f},
+	{20000, 0.01f},
+	{20000, 0.0f},
+	{10000, 0.5f},
+	{1000, 0.25f},
+};
+
+static void pwm_self_test(pwm_chan_t chan)
+{
+	pwm_init_config_t init_config = {0};
+	pwm_period_duty_config_t duty_config = {0};
+
+	for (uint32_t i = 0; i < sizeof(test_param)/sizeof(test_param[0]); i++) {
+		os_memset(&init_config, 0, sizeof(init_config));
+		os_memset(&duty_config, 0, sizeof(duty_config));
+
+		init_config.period_cycle = 26000000 / test_param[i].freq_hz;
+		init_config.duty_cycle = init_config.period_cycle * test_param[i].duty_ratio;
+
+		BK_LOG_ON_ERR(bk_pwm_init(chan, &init_config));
+		BK_LOG_ON_ERR(bk_pwm_start(chan));
+
+		duty_config.period_cycle = 26000000 / test_param[i].freq_hz;
+		duty_config.duty_cycle = init_config.period_cycle * test_param[i].duty_ratio;
+		BK_LOG_ON_ERR(bk_pwm_set_period_duty(chan, &duty_config));
+
+		rtos_delay_milliseconds(1000);
+
+		BK_LOG_ON_ERR(bk_pwm_stop(chan));
+		BK_LOG_ON_ERR(bk_pwm_deinit(chan));
 	}
 }
 

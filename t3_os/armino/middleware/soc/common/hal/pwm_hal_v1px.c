@@ -175,10 +175,8 @@ void pwm_hal_set_single_chan_tim_enable(pwm_hal_t *hal, uint32_t hw_ch, uint32_t
 {
 	switch(hw_ch) {
 	case 0:
-		pwm_ll_set_pwm_cr1_cen1(hal->id, value);
-		break;
 	case 1:
-		pwm_ll_set_cr3_cen4_value(hal->id, value);
+		pwm_ll_set_pwm_cr1_cen1(hal->id, value);
 		break;
 	case 2:
 	case 3:
@@ -2204,22 +2202,22 @@ void pwm_hal_set_init_signal_high(pwm_hal_t *hal, pwm_ch_t hw_ch)
 {
 	switch (hw_ch) {
 	case PWM_CH_0:
-		pwm_ll_set_pwm_ccmr_ch1p(hal->id, 0x01);
+		pwm_ll_set_pwm_ccmr_ch1p(hal->id, 0x03);
 		break;
 	case PWM_CH_1:
-		pwm_ll_set_pwm_ccmr_ch2p(hal->id, 0x01);
+		pwm_ll_set_pwm_ccmr_ch2p(hal->id, 0x03);
 		break;
 	case PWM_CH_2:
-		pwm_ll_set_pwm_ccmr_ch3p(hal->id, 0x01);
+		pwm_ll_set_pwm_ccmr_ch3p(hal->id, 0x03);
 		break;
 	case PWM_CH_3:
-		pwm_ll_set_pwm_ccmr_ch4p(hal->id, 0x01);
+		pwm_ll_set_pwm_ccmr_ch4p(hal->id, 0x03);
 		break;
 	case PWM_CH_4:
-		pwm_ll_set_pwm_ccmr_ch5p(hal->id, 0x01);
+		pwm_ll_set_pwm_ccmr_ch5p(hal->id, 0x03);
 		break;
 	case PWM_CH_5:
-		pwm_ll_set_pwm_ccmr_ch6p(hal->id, 0x01);
+		pwm_ll_set_pwm_ccmr_ch6p(hal->id, 0x03);
 		break;
 	default:
 		break;
@@ -2258,14 +2256,17 @@ void pwm_hal_set_new_config_way(pwm_hal_t *hal, pwm_ch_t hw_ch, uint32_t value)
 	case 0:
 	case 1:
 		pwm_hal_set_pwm_cr1_oc1pe(hal, value);
+		pwm_hal_set_pwm_cr1_arpe1(hal, value);
 		break;
 	case 2:
 	case 3:
 		pwm_hal_set_pwm_cr1_oc2pe(hal, value);
+		pwm_hal_set_pwm_cr1_arpe2(hal, value);
 		break;
 	case 4:
 	case 5:
 		pwm_hal_set_pwm_cr1_oc3pe(hal, value);
+		pwm_hal_set_pwm_cr1_arpe3(hal, value);
 		break;
 	default:
 		break;
@@ -2358,10 +2359,8 @@ uint32_t pwm_hal_get_tim_arr(pwm_hal_t *hal, pwm_ch_t hw_ch)
 
 	switch (hw_ch) {
 	case 0:
-		val = pwm_hal_get_tim1_arr_tim1_arr(hal);
-		break;
 	case 1:
-		val = pwm_ll_get_tim4_arr_tim4_arr(hal->id);
+		val = pwm_hal_get_tim1_arr_tim1_arr(hal);
 		break;
 	case 2:
 	case 3:

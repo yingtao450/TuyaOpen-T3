@@ -901,16 +901,11 @@ dhcp_start(struct netif *netif)
     uint8_t *addr = (uint8_t *)&(n->address);
     if((n->addr_type == ADDR_TYPE_FAST_DHCP) && (addr[0] != 0 && addr[0] != 0xFF))
     {
-      ip_addr_t ip_addr, netmask, gw, dns1;
-      memcpy((char *)&ip_addr, (char *)&n->address, sizeof(ip_addr_t));
-      memcpy((char *)&netmask, (char *)&n->netmask, sizeof(ip_addr_t));
-      memcpy((char *)&gw, (char *)&n->gw, sizeof(ip_addr_t));
-      memcpy((char *)&dns1, (char *)&n->dns1, sizeof(ip_addr_t));
-      ip4_addr_copy(dhcp->server_ip_addr, gw);
-      ip4_addr_copy(dhcp->offered_ip_addr, ip_addr);
-      ip4_addr_copy(dhcp->offered_gw_addr, gw);
-      ip4_addr_copy(dhcp->offered_sn_mask, netmask);
-      LWIP_LOGI("fast dhcp rebind ip_addr: "BK_IP4_FORMAT" \r\n", BK_IP4_STR(ip_addr_get_ip4_u32(&dhcp->offered_ip_addr)));
+      ip_addr_set_ip4_u32(&dhcp->server_ip_addr, n->gw);
+      ip4_addr_set_u32(&dhcp->offered_ip_addr, n->address);
+      ip4_addr_set_u32(&dhcp->offered_gw_addr, n->gw);
+      ip4_addr_set_u32(&dhcp->offered_sn_mask, n->netmask);
+      LWIP_LOGI("fast dhcp rebind ip_addr: "BK_IP4_FORMAT" \r\n", BK_IP4_STR(ip4_addr_get_u32(&dhcp->offered_ip_addr)));
       result = dhcp_reboot(netif);
     } else {
       result = dhcp_discover(netif);

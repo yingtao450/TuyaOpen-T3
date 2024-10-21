@@ -1707,8 +1707,15 @@ static void pm_deep_sleep_process()
 #if CONFIG_PM_SUPER_DEEP_SLEEP
 static void pm_super_deep_sleep_process()
 {
+	uint64_t skip_io = 0;
+
+#if CONFIG_GPIO_RETENTION_SUPPORT
+	gpio_retention_sync(false);
+	skip_io = gpio_retention_map_get();
+#endif
+
 #if CONFIG_GPIO_WAKEUP_SUPPORT
-	gpio_hal_switch_to_low_power_status(BIT64(16));
+	gpio_hal_switch_to_low_power_status(BIT64(16) | skip_io);
 #endif
 
 	pm_enter_super_deep_sleep();
@@ -1812,7 +1819,12 @@ bk_err_t bk_pm_sleep_register_cb(pm_sleep_mode_e sleep_mode, pm_dev_id_e dev_id,
 		if (enter_config != NULL)
 		{
 			pm_sleep_cb_t cb_item = {dev_id, *enter_config};
-			if ((enter_config->cb != NULL) && (dev_id < PM_DEV_ID_DEFAULT))
+			// use exit_config to indicate the execution priority when entering sleep
+			if ((enter_config->cb != NULL) && (exit_config != NULL) && ((pm_cb_priority_e)exit_config->args < PM_CB_PRIORITY_MAX))
+			{
+				pm_sleep_cb_push_item(s_pm_deepsleep_enter_cb_conf, &s_pm_deepsleep_enter_cb_cnt[(pm_cb_priority_e)exit_config->args], cb_item);
+			}
+			else if ((enter_config->cb != NULL) && (dev_id < PM_DEV_ID_DEFAULT))
 			{
 				pm_sleep_cb_push_item(s_pm_deepsleep_enter_cb_conf, &s_pm_deepsleep_enter_cb_cnt[PM_CB_PRIORITY_0], cb_item);
 			}

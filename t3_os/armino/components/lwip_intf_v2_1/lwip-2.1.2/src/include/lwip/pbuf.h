@@ -241,6 +241,10 @@ struct pbuf {
   u16_t tx_agg;           //mac A-MPDU bit
   u16_t tx_retry;      //mac sw retry bit
   #endif
+
+#if MEMP_MEM_MALLOC
+  u16_t alloc_size;    //pool+libc malloc mode to record malloc size
+#endif
 };
 
 

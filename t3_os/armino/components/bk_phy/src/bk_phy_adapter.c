@@ -400,6 +400,7 @@ static bk_err_t bk_saradc_stop(uint8_t adc_channel)
 }
 
 extern uint64 riscv_get_mtimer(void);
+void bk_delay(INT32 num);
 
 const phy_os_funcs_t g_phy_os_funcs = {
 
@@ -430,7 +431,7 @@ const phy_os_funcs_t g_phy_os_funcs = {
 #endif
 
     ////
-    ._delay                    = delay,
+    ._delay                    = bk_delay,
     ._delay_us                 = delay_us,
     ._ddev_control             = ddev_control,
     ._bk_wdt_stop              = bk_wdt_stop,

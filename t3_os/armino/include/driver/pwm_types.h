@@ -71,6 +71,8 @@ typedef struct {
 	uint32_t duty_cycle;    /**< PWM duty cycle, unit is (1/clock_frequency) */
 	uint32_t duty2_cycle;   /**< PWM duty2 cycle, unit is (1/clock_frequency) */
 	uint32_t duty3_cycle;   /**< PWM duty2 cycle, unit is (1/clock_frequency) */
+	uint32_t psc;           /*!< Specifies the prescaler value used to divide the TIM clock.
+	                             This parameter can be a number between Min Data=0x00 and Max at? = 0xFF */
 	uint32_t reserved[4];   /**< Reserved for future extend, must set to 0 */
 } pwm_init_config_t;
 
@@ -79,6 +81,8 @@ typedef struct {
 	uint32_t duty_cycle;    /**< PWM duty cycle, unit is (1/clock_frequency) */
 	uint32_t duty2_cycle;   /**< PWM duty2 cycle, unit is (1/clock_frequency) */
 	uint32_t duty3_cycle;   /**< PWM duty3 cycle, unit is (1/clock_frequency) */
+	uint32_t psc;           /*!< Specifies the prescaler value used to divide the TIM clock.
+	                             This parameter can be a number between Min Data=0x00 and Max at? = 0xFF */
 } pwm_period_duty_config_t;
 
 /**

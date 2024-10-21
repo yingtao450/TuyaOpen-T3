@@ -14,7 +14,7 @@
 
 #include <lwip/sockets.h>
 #include "wlanif.h"
-#if CONFIG_ETH
+#if CONFIG_ETH || CONFIG_SPI_ETH
 #include "ethernetif.h"
 #endif
 
@@ -106,6 +106,10 @@ static struct iface g_uap = {{0}, .name = "ap"};
 #ifdef CONFIG_ETH
 static struct iface g_eth = {{0}, .name = "eth"};
 #endif
+#ifdef CONFIG_SPI_ETH
+static struct iface g_spi_eth = {{0}, .name = "spi_eth"};
+#endif
+
 net_sta_ipup_cb_fn sta_ipup_cb = NULL;
 
 extern void *net_get_sta_handle(void);
@@ -235,10 +239,10 @@ static void wm_netif_status_static_callback(struct netif *n)
 				/* read stored IP from flash as the static IP */
 				struct wlan_fast_connect_info fci = {0};
 				wlan_read_fast_connect_info_internal(&fci);
-				os_memcpy((char *)&n->ip_addr, (char *)&fci.ip_addr, sizeof(fci.ip_addr));
-				os_memcpy((char *)&n->netmask, (char *)&fci.netmask, sizeof(fci.netmask));
-				os_memcpy((char *)&n->gw, (char *)&fci.gw, sizeof(fci.gw));
-				os_memcpy((char *)&n->dns1, (char *)&fci.dns1, sizeof(fci.dns1));
+				ip_addr_set_ip4_u32(&n->ip_addr, *((u32 *)&fci.ip_addr));
+				ip_addr_set_ip4_u32(&n->netmask, *((u32 *)&fci.netmask));
+				ip_addr_set_ip4_u32(&n->gw, *((u32 *)&fci.gw));
+				os_memcpy((char *)&n->dns1, (char *)&fci.dns1, sizeof(n->dns1));
 				LWIP_LOGI("ip_addr: "BK_IP4_FORMAT" \r\n", BK_IP4_STR(ip_addr_get_ip4_u32(&n->ip_addr)));
 			}
 #if !CONFIG_DISABLE_DEPRECIATED_WIFI_API
@@ -317,11 +321,11 @@ static void wm_netif_status_callback(struct netif *n)
 						n->dns1 = ip_addr_get_ip4_u32(dns_server);
 						struct wlan_fast_connect_info fci = { 0 };
 						wlan_read_fast_connect_info_internal(&fci);
-						os_memset(&fci.ip_addr, 0, sizeof(ip_addr_t) * 4);
-						os_memcpy((char *)&fci.ip_addr, (char *)&n->ip_addr, sizeof(n->ip_addr));
-						os_memcpy((char *)&fci.netmask, (char *)&n->netmask, sizeof(n->netmask));
-						os_memcpy((char *)&fci.gw, (char *)&n->gw, sizeof(n->gw));
-						os_memcpy((char *)&fci.dns1, (char *)&n->dns1, sizeof(n->dns1));
+						os_memset(&fci.ip_addr, 0, sizeof(fci.ip_addr));
+						os_memcpy((char *)&fci.ip_addr, (char *)ip_2_ip4(&n->ip_addr), sizeof(fci.ip_addr));
+						os_memcpy((char *)&fci.netmask, (char *)ip_2_ip4(&n->netmask), sizeof(fci.netmask));
+						os_memcpy((char *)&fci.gw, (char *)ip_2_ip4(&n->gw), sizeof(fci.gw));
+						os_memcpy((char *)&fci.dns1, (char *)&n->dns1, sizeof(fci.dns1));
 						wlan_write_fast_connect_info_internal(&fci);
 					}
 
@@ -451,6 +455,14 @@ void sta_ip_down(void)
 			g_mlan.netif.ip6_addr_state[addr_idx] = IP6_ADDR_INVALID;
 		}
 #endif
+#if CONFIG_SPI_ETH
+	struct netif * spi_netif = net_get_spi_eth_handle();
+	if (   spi_netif && (spi_netif->flags & NETIF_FLAG_UP) 
+        && spi_netif->ip_addr.addr && spi_netif->gw.addr 
+        && spi_netif->netmask.addr) {
+        netifapi_netif_set_default(spi_netif);
+    }
+#endif /* CONFIG_SPI_ETH */
 	}
 }
 
@@ -646,8 +658,16 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
 
 	struct iface *if_handle = (struct iface *)intrfc_handle;
 
-	LWIP_LOGI("configuring iface %s (with %s)\n", if_handle->name,
-		(addr->addr_type == ADDR_TYPE_DHCP) ? "DHCP client" : "Static IP");
+	char *ip_type = NULL;
+	if(addr->addr_type == ADDR_TYPE_DHCP)
+		ip_type = "DHCP client";
+	else if(addr->addr_type == ADDR_TYPE_STATIC)
+		ip_type = "Static IP";
+	else if(addr->addr_type == ADDR_TYPE_FAST_DHCP)
+		ip_type = "Fast DHCP client";
+
+	LWIP_LOGI("configuring iface %s (with %s)\n", if_handle->name, ip_type);
+
 	netifapi_netif_set_down(&if_handle->netif);
 
 	/* De-register previously registered DHCP Callback for correct
@@ -1099,3 +1119,38 @@ void eth_ip_down(void)
 }
 #endif
 
+#ifdef CONFIG_SPI_ETH
+void *net_get_spi_eth_handle(void)
+{
+	return &g_spi_eth.netif;
+}
+
+int net_spi_eth_init(void)
+{
+	err_t err;
+	struct iface *spi_eth_if = &g_spi_eth;
+
+	net_ipv4stack_init();
+	ip_addr_set_ip4_u32(&spi_eth_if->ipaddr, INADDR_ANY);
+
+	err = netifapi_netif_add(&spi_eth_if->netif, ip_2_ip4(&spi_eth_if->ipaddr),
+						ip_2_ip4(&spi_eth_if->ipaddr), ip_2_ip4(&spi_eth_if->ipaddr), NULL,
+						spi_ethernetif_init, tcpip_input);
+	if (err) {
+		LWIP_LOGE("net_wlan_add_netif failed(%d)\n", err);
+		return err;
+	}
+
+#ifdef CONFIG_IPV6
+	net_ipv6stack_init(&g_spi_eth.netif);
+#endif /* CONFIG_IPV6 */
+
+#if CONFIG_MDNS
+	//mdns_resp_init();
+#endif
+
+	/* disable SW checksum calculation */
+	NETIF_SET_CHECKSUM_CTRL(&spi_eth_if->netif, NETIF_CHECKSUM_DISABLE_ALL);
+	return 0;
+}
+#endif /* CONFIG_SPI_ETH */

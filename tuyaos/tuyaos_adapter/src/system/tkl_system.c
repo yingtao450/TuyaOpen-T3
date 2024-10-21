@@ -16,6 +16,7 @@
 #include "reset_reason.h"
 #include <driver/trng.h>
 #include "tkl_memory.h"
+#include <driver/otp.h>
 /**
 * @brief Get system ticket count
 *

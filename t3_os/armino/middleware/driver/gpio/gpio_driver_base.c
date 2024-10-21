@@ -127,7 +127,9 @@ bk_err_t bk_gpio_driver_init(void)
 {
 	//avoid re-init caused some info lost
 	if(s_gpio_is_init) {
-		GPIO_LOGI("%s:has inited \r\n", __func__);
+		/* Modified by TUYA Start */
+		//GPIO_LOGI("%s:has inited \r\n", __func__);  //by tuya
+		/* Modified by TUYA End */
 		return BK_OK;
 	}
 
@@ -178,7 +180,9 @@ bk_err_t bk_gpio_driver_deinit(void)
 {
 	if(!s_gpio_is_init)
 	{
-		GPIO_LOGI("%s:isn't init \r\n", __func__);
+		/* Modified by TUYA Start */
+		//GPIO_LOGI("%s:isn't init \r\n", __func__);  //by tuya
+		/* Modified by TUYA End */
 		return BK_OK;
 	}
 
@@ -383,7 +387,9 @@ static void gpio_isr(void)
 			}
 #endif
 			if (s_gpio_isr[gpio_id]) {
-				GPIO_LOGD("gpio int: index:%d \r\n",gpio_id);
+				/* Modified by TUYA Start */
+				//GPIO_LOGD("gpio int: index:%d \r\n",gpio_id);  //by tuya
+				/* Modified by TUYA End */
 				s_gpio_isr[gpio_id](gpio_id);
 			}
 			bk_gpio_clear_interrupt(gpio_id);
@@ -956,6 +962,17 @@ bk_err_t bk_gpio_register_lowpower_keep_status(gpio_id_t gpio_id,
 	uint32_t i = 0;
 	GPIO_LOGI("[+]gpio=%d io_mode=%d pull_mode=%d func_mode=%d\r\n",
 		gpio_id, config->io_mode, config->pull_mode, config->func_mode);
+
+#if CONFIG_GPIO_RETENTION_SUPPORT
+	if (config->io_mode == GPIO_OUTPUT_ENABLE && config->pull_mode == GPIO_PULL_UP_EN)
+	{
+		gpio_retention_map_set(gpio_id, GPIO_OUTPUT_STATE_HIGH);
+	}
+	else if (config->io_mode == GPIO_OUTPUT_ENABLE && config->pull_mode == GPIO_PULL_DOWN_EN)
+	{
+		gpio_retention_map_set(gpio_id, GPIO_OUTPUT_STATE_LOW);
+	}
+#endif
 
 	//search the same id and replace it.
 	for(i = 0; i < CONFIG_GPIO_DYNAMIC_KEEP_STATUS_MAX_CNT; i++)

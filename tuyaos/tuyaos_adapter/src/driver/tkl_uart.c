@@ -2,22 +2,16 @@
 
 #include "drv_model_pub.h"
 #include "uart_pub.h"
-// #include "BkDriverUart.h"
 #include <driver/uart.h>
 #include "uart_statis.h"
 #include "bk_uart.h"
-//#include "uart.h"
 #include <components/log.h>
-
-#define UART_TAG "uart"
-#define UART_LOGI(...) BK_LOGI(UART_TAG, ##__VA_ARGS__)
-#define UART_LOGW(...) BK_LOGW(UART_TAG, ##__VA_ARGS__)
-#define UART_LOGE(...) BK_LOGE(UART_TAG, ##__VA_ARGS__)
-#define UART_LOGD(...) BK_LOGD(UART_TAG, ##__VA_ARGS__)
 
 #define CLI_GETCHAR_TIMEOUT           (120000)
 
 volatile int g_test_mode = 1;
+
+extern void bk_printf(const char *fmt, ...);
 
 /**
  * @brief uart init
@@ -40,13 +34,16 @@ OPERATE_RET tkl_uart_init(TUYA_UART_NUM_E port_id, TUYA_UART_BASE_CFG_T *cfg)
     memset(&bkcfg, 0, sizeof(uart_config_t));
 
     if(CONFIG_UART_PRINT_PORT == port_num) {
-        UART_LOGI("tkl_uart_init: print port already init.\n");
-        return OPRT_INVALID_PARM;
+        bk_printf("tkl_uart_init: print port already init.\n");
+        return OPRT_OK;
     } else if (0 == port_num) {
         port = UART_ID_0;
     } else if (1 == port_num) {
         port = UART_ID_1;
+    } else if (2 == port_num) {
+        port = UART_ID_2;
     } else {
+        bk_printf("tkl_uart_init unsupport port: %d\r\n", port_num);
         return OPRT_INVALID_PARM;
     }
 
@@ -60,6 +57,7 @@ OPERATE_RET tkl_uart_init(TUYA_UART_NUM_E port_id, TUYA_UART_BASE_CFG_T *cfg)
     } else if (TUYA_UART_DATA_LEN_8BIT == cfg->databits) {
         bkcfg.data_bits = UART_DATA_8_BITS;
     } else {
+        bk_printf("tkl_uart_init unsupport databits: %d\r\n", cfg->databits);
         return OPRT_OS_ADAPTER_INVALID_PARM;
     }
 
@@ -69,6 +67,7 @@ OPERATE_RET tkl_uart_init(TUYA_UART_NUM_E port_id, TUYA_UART_BASE_CFG_T *cfg)
     } else if (TUYA_UART_STOP_LEN_2BIT == cfg->stopbits) {
         bkcfg.stop_bits = UART_STOP_BITS_2;
     } else {
+        bk_printf("tkl_uart_init unsupport stopbits: %d\r\n", cfg->stopbits);
         return OPRT_OS_ADAPTER_INVALID_PARM;
     }
 
@@ -80,6 +79,7 @@ OPERATE_RET tkl_uart_init(TUYA_UART_NUM_E port_id, TUYA_UART_BASE_CFG_T *cfg)
     } else if (TUYA_UART_PARITY_TYPE_ODD == cfg->parity) {
         bkcfg.parity = UART_PARITY_ODD;
     } else {
+        bk_printf("tkl_uart_init unsupport parity: %d\r\n", cfg->parity);
         return OPRT_OS_ADAPTER_INVALID_PARM;
     }
 
@@ -87,7 +87,7 @@ OPERATE_RET tkl_uart_init(TUYA_UART_NUM_E port_id, TUYA_UART_BASE_CFG_T *cfg)
     bkcfg.flow_ctrl = UART_FLOWCTRL_DISABLE;
     bkcfg.src_clk   = UART_SCLK_XTAL_26M;
 
-    bk_printf("tkl_uart_init, port: %d, baudrate %d\r\n", port_num, cfg->baudrate);
+    //bk_printf("tkl_uart_init, port: %d, baudrate %d\r\n", port_num, cfg->baudrate);
 
     bk_uart_init(port, &bkcfg);
 
@@ -110,18 +110,16 @@ OPERATE_RET tkl_uart_deinit(TUYA_UART_NUM_E port_id)
     int port_num = TUYA_UART_GET_PORT_NUMBER(port_id);
     uart_id_t port;
 
-    if( CONFIG_UART_PRINT_PORT == port_num)
-    {
-        UART_LOGI("tkl_uart_init: print port already inuse.\n");
+    if( CONFIG_UART_PRINT_PORT == port_num) {
+        bk_printf("tkl_uart_init: print port already inuse.\n");
         return OPRT_INVALID_PARM;
-    } else if ( 0 == port_num)
-    {
+    } else if ( 0 == port_num) {
         port = UART_ID_0;
-    } else if ( 1 == port_num)
-    {
+    } else if ( 1 == port_num) {
         port = UART_ID_1;
-    } else
-    {
+    } else if ( 2 == port_num) {
+        port = UART_ID_2;
+    }  else {
         return OPRT_INVALID_PARM;
     }
     bk_uart_deinit(port);
@@ -150,6 +148,8 @@ int tkl_uart_write(TUYA_UART_NUM_E port_id, void *buff, uint16_t len)
         port = UART_ID_0;
     } else if ( 1 == TUYA_UART_GET_PORT_NUMBER(port_id)) {
         port = UART_ID_1;
+    } else if ( 2 == TUYA_UART_GET_PORT_NUMBER(port_id)) {
+        port = UART_ID_2;
     } else {
         return OPRT_INVALID_PARM;
     }
@@ -179,7 +179,9 @@ int tkl_uart_read(TUYA_UART_NUM_E port_id, void *buff, uint16_t len)
         port = UART_ID_0;
     } else if ( 1 == TUYA_UART_GET_PORT_NUMBER(port_id)) {
         port = UART_ID_1;
-    } else {
+    } else if ( 2 == TUYA_UART_GET_PORT_NUMBER(port_id)) {
+        port = UART_ID_2;
+    }  else {
         return OPRT_INVALID_PARM;
     }
 
@@ -222,13 +224,6 @@ OPERATE_RET tkl_uart_set_rx_flowctrl(TUYA_UART_NUM_E port_id, BOOL_T enable)
     return OPRT_OK;
 }
 
-void uart_dev_irq_handler(int uport, void *param)
-{
-    TUYA_UART_IRQ_CB uart_irq_cb = (TUYA_UART_IRQ_CB)param;
-
-    uart_irq_cb((uint32_t)uport);
-}
-
 TUYA_UART_IRQ_CB tkl_rx_cb = NULL;
 static void uart_isr_t_cb(uart_id_t id, void  *param) {
     if (NULL != tkl_rx_cb) {
@@ -252,16 +247,18 @@ void tkl_uart_rx_irq_cb_reg(TUYA_UART_NUM_E port_id, TUYA_UART_IRQ_CB rx_cb)
     int port_num = TUYA_UART_GET_PORT_NUMBER(port_id);
     uart_id_t port;
 
-    UART_LOGI("tkl_uart_rx_irq_cb_reg: port_num(%d).rx_cb(%p).\n", port_num, rx_cb);
+    bk_printf("tkl_uart_rx_irq_cb_reg: port_num(%d).rx_cb(%p).\n", port_num, rx_cb);
 
     if( CONFIG_UART_PRINT_PORT == port_num) {
-        UART_LOGI("tkl_uart_rx_irq_cb_reg: print port already inuse.\n");
+        bk_printf("tkl_uart_rx_irq_cb_reg: print port already inuse.\n");
         return;
     } else if ( 0 == port_num) {
         port = UART_ID_0;
     } else if ( 1 == port_num) {
         port = UART_ID_1;
-    } else {
+    } else if ( 2 == port_num) {
+        port = UART_ID_2;
+    }  else {
         return;
     }
     tkl_rx_cb = rx_cb;

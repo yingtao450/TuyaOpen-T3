@@ -338,7 +338,7 @@ bk_err_t bk_timer_driver_deinit(void)
     return BK_OK;
 }
 
-extern void delay(int num);//TODO fix me
+extern void bk_delay(int num);//TODO fix me
 
 bk_err_t bk_timer_start_without_callback(timer_id_t timer_id, uint32_t time_ms)
 {
@@ -375,7 +375,7 @@ bk_err_t bk_timer_start_without_callback(timer_id_t timer_id, uint32_t time_ms)
          * without the delay, the tick timer counter becomes bigger than timer
          * period very soon, then the tick interrupt will never be triggered.
          * */
-        delay(4);
+        bk_delay(4);
     }
 
     timer_hal_init_timer(&s_timer.hal, timer_id, time_ms, TIMER_UNIT_MS);

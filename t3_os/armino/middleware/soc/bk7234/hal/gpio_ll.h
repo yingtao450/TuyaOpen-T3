@@ -38,12 +38,13 @@ typedef volatile struct {
 #define GPIO_IS_SECURE(gpio_id) ((gpio_id) < 2)
 #endif
 
-static system_gpio_func_mode_hw_t *gpio_system_gpio_func_mode = (system_gpio_func_mode_hw_t *)GPIO_LL_SYSTEM_REG_BASE;
+static system_gpio_func_mode_hw_t *gpio_system_gpio_func_mode;
 
 static inline void gpio_ll_init(gpio_hw_t *hw)
 {
-
+	gpio_system_gpio_func_mode = (system_gpio_func_mode_hw_t *)GPIO_LL_SYSTEM_REG_BASE;
 }
+
 
 //some special code re-use a GPIO, it doesn't care the GPIO setting value, just bake/restore value.
 static inline void gpio_ll_set_value(gpio_hw_t *hw, uint32 index, uint32_t v)
@@ -570,8 +571,8 @@ static inline void gpio_ll_wakeup_enable(uint64_t index, uint64_t type_l, uint64
 
 	REG_WRITE(GPIO_LL_REG_BASE+0x42*4, rdata);
 
-extern void delay(INT32 num);
-	delay(10);
+extern void bk_delay(INT32 num);
+	bk_delay(10);
 	REG_WRITE(GPIO_LL_REG_BASE+0x47*4, 0xffffffff);
 	REG_WRITE(GPIO_LL_REG_BASE+0x48*4, 0xffffffff);
 
@@ -640,8 +641,8 @@ static inline void gpio_ll_wakeup_interrupt_clear()
 	REG_WRITE(GPIO_LL_REG_BASE+0x47*4, (REG_READ(GPIO_LL_REG_BASE+0x47*4))|int_state);
 	REG_WRITE(GPIO_LL_REG_BASE+0x48*4, (REG_READ(GPIO_LL_REG_BASE+0x48*4))|(int_state >> 32));
 
-	extern void delay(INT32 num);
-	delay(10);
+	extern void bk_delay(INT32 num);
+	bk_delay(10);
 	REG_WRITE(GPIO_LL_REG_BASE+0x47*4, 0xffffffff);
 	REG_WRITE(GPIO_LL_REG_BASE+0x48*4, 0xffffffff);
 

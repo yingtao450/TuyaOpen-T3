@@ -751,6 +751,14 @@ static void cli_spi_flash_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc
 	return;
 }
 
+#if CONFIG_SPI_ETH
+static void cli_spi_eth_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+	extern void spi_eth_status_dump(void);
+	spi_eth_status_dump();
+}
+#endif /* CONFIG_SPI_ETH */
+
 #define SPI_CMD_CNT (sizeof(s_spi_commands) / sizeof(struct cli_command))
 static const struct cli_command s_spi_commands[] = {
 	{"spi_driver", "spi_driver {init|deinit}", cli_spi_driver_cmd},
@@ -759,6 +767,9 @@ static const struct cli_command s_spi_commands[] = {
 	{"spi_int", "spi_int {id} {reg} {tx|rx}", cli_spi_int_cmd},
 	{"spi_data_test", "spi_data_test {id} {master|slave} {baud_rate|send}[...]", cli_spi_data_txrx_test_cmd},
 	{"spi_flash", "spi_flash {id} {readid|read|write|erase} {addr} {len}[...]", cli_spi_flash_cmd},
+#if CONFIG_SPI_ETH	
+	{"spi_eth_dump", "spi_eth_dump {dump}", cli_spi_eth_cmd},
+#endif /* CONFIG_SPI_ETH */
 };
 
 int cli_spi_init(void)

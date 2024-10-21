@@ -68,7 +68,7 @@ menu "Lwip_intf_v2_1"
 
 		config LWIP_MEMP_MEM_MALLOC
 			bool "memp_alloc() use mem_malloc/mem_free instead of the lwip pool allocator"
-			default n
+			default y
 
 		config LWIP_MEMP_STATS
 			bool "memp statistics"

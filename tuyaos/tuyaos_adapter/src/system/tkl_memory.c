@@ -9,8 +9,9 @@
  */
 
 #include "tkl_memory.h"
-#include "tkl_output.h"
 #include <os/mem.h>
+
+extern void bk_printf(const char *fmt, ...);
 
 /**
 * @brief Alloc memory of system
@@ -25,11 +26,11 @@ void* tkl_system_malloc(const size_t size)
 {
     void* ptr = os_malloc(size);
     if(NULL == ptr) {
-        tkl_log_output("tkl_system_malloc failed, size(%d)!\r\n", size);
+        bk_printf("tkl_system_malloc failed, size(%d)!\r\n", size);
     }
 
     if (size > 4096) {
-        tkl_log_output("tkl_system_malloc big memory, size(%d)!\r\n", size);
+        bk_printf("tkl_system_malloc big memory, size(%d)!\r\n", size);
     }
 
     return ptr;

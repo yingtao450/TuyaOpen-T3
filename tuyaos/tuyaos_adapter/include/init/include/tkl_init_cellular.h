@@ -520,7 +520,7 @@ typedef struct
 {
     OPERATE_RET (*audio_play) (TKL_AUDIO_PLAYER_TYPE_E type, TKL_AUDIO_STREAM_FORMAT_E format,
                                 PCHAR_T file_path,
-                                TKL_AUDIO_PLAYER_CB cb, PVOID_T cb_ctx);
+                                TKL_AUDIO_PLAYER_CB cb, Pvoid cb_ctx);
     OPERATE_RET (*audio_pause) (void);
     OPERATE_RET (*audio_resume) (void);
     OPERATE_RET (*audio_stop) (void);
@@ -530,14 +530,14 @@ typedef struct
     OPERATE_RET (*audio_get_mute) (PBOOL_T mute);
     OPERATE_RET (*audio_mem_play) (TKL_AUDIO_PLAYER_TYPE_E type,
                                     TKL_AUDIO_STREAM_FORMAT_E format, PBYTE_T buff,
-                                    uint32_t size,TKL_AUDIO_PLAYER_CB cb, PVOID_T cb_ctx);
+                                    uint32_t size,TKL_AUDIO_PLAYER_CB cb, Pvoid cb_ctx);
     OPERATE_RET (*audio_set_output) (TKL_AUDEV_OUTPUT_TYPE chan);
     OPERATE_RET (*audio_get_output) (TKL_AUDEV_OUTPUT_TYPE *chan);
     OPERATE_RET (*audio_set_input) (TKL_AUDEV_INPUT_TYPE chan);
     OPERATE_RET (*audio_get_input) (TKL_AUDEV_INPUT_TYPE *chan);
     OPERATE_RET (*audio_get_status) (TKL_AUDIO_PLAYER_STATUS_E *status);
     OPERATE_RET (*audio_play_stream) (TKL_AUDIO_PLAYER_TYPE_E type, const TKL_AUDIO_PLAY_OPS_T* playOps,
-                                      PVOID_T playCtx, const TKL_AUDIO_FRAME_T* frame);
+                                      Pvoid playCtx, const TKL_AUDIO_FRAME_T* frame);
     OPERATE_RET (*audio_stop_stream) (void);
 } TKL_CELL_PLAYER_INTF_T;
 

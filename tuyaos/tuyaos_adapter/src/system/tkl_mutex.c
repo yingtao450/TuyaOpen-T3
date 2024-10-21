@@ -15,6 +15,8 @@
 #include "task.h"
 #include "semphr.h"
 
+
+extern void bk_printf(const char *fmt, ...);
 /**
 * @brief Create mutex
 *

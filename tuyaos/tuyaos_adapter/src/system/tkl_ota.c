@@ -8,11 +8,11 @@
 #include <string.h>
 #include "tkl_ota.h"
 #include "tuya_error_code.h"
-#include "tkl_output.h"
 #include "tkl_memory.h"
 #include "tkl_flash.h"
 #include "tkl_system.h"
 #include "tkl_watchdog.h"
+#include "tuya_cloud_types.h"
 
 #define FLASH_SECTOR_SIZE 4096
 #define BLOCK_SZ FLASH_SECTOR_SIZE
@@ -61,13 +61,13 @@ typedef struct {
     OTA_TYPE_E ota_type;//0-diff; 1-seg_A; 2-seg_B
 }UG_PROC_S;
 
-
+extern void bk_printf(const char *fmt, ...);
 /***********************************************************
 *************************variable define********************
 ***********************************************************/
 #define SEC_B_UNIT (1024)
+#define FLASH_BASE_ADDR (0x02000000)
 
-static uint8_t buf[FLASH_SECTOR_SIZE] = {0};
 static uint32_t flash_area = INVALID_ARG;
 static UG_PROC_S *ug_proc = NULL;
 static uint8_t tkl_fist_flag = 0;
@@ -98,9 +98,9 @@ OPERATE_RET tkl_ota_flash_erase(uint32_t addr, uint32_t size, void* arg)
     }
     //bk_printf("tkl_ota_flash_erase:%x %d, %d\r\n",address, param, real_size);
     tkl_watchdog_refresh();
-    tkl_flash_set_protect(FALSE);
+    //tkl_flash_set_protect(FALSE);
     tkl_flash_erase(address, real_size);//这里的擦除的size 是否需要改为：off_size+len_v_to_p(size)
-    tkl_flash_set_protect(TRUE);
+    //tkl_flash_set_protect(TRUE);
     tkl_watchdog_refresh();
 
     return OPRT_OK;
@@ -152,13 +152,13 @@ OPERATE_RET tkl_ota_flash_write(uint32_t addr, uint8_t *buf, uint32_t len, void*
                 last_data_cnt = 0;
                 address -= last_data_cnt;
                 tkl_watchdog_refresh();
-                tkl_flash_set_protect(FALSE);
+                //tkl_flash_set_protect(FALSE);
                 if(tkl_flash_write(BK_ADDR_CHANGE(TO_PHYSICS, address), bbuf, 34)) {
-                    tkl_flash_set_protect(TRUE);
+                    //tkl_flash_set_protect(TRUE);
                     bk_printf("Write sector failed\r\n");
                     return OPRT_OS_ADAPTER_OTA_PROCESS_FAILED;
                 }
-                tkl_flash_set_protect(TRUE);
+                //tkl_flash_set_protect(TRUE);
                 tkl_watchdog_refresh();
                 address += 32;
             } 
@@ -169,19 +169,20 @@ OPERATE_RET tkl_ota_flash_write(uint32_t addr, uint8_t *buf, uint32_t len, void*
             //ty_encrypt((uint32_t *)(buf+off), bbuf, encrypt_num, BK_ADDR_CHANGE(TO_PHYSICS, address));
             //ty_calc_crc((uint32_t *)bbuf, encrypt_num);
             tkl_watchdog_refresh();
-            tkl_flash_set_protect(FALSE);
+
+            //tkl_flash_set_protect(FALSE);
             if(tkl_flash_write(BK_ADDR_CHANGE(TO_PHYSICS, address), bbuf, encrypt_num*34)) {
-                tkl_flash_set_protect(TRUE);
+                //tkl_flash_set_protect(TRUE);
                 bk_printf("Write sector failed\r\n");
                 return OPRT_OS_ADAPTER_OTA_PROCESS_FAILED;
             }
-            tkl_flash_set_protect(TRUE);
+            //tkl_flash_set_protect(TRUE);
             tkl_watchdog_refresh();
             lcnt -= encrypt_num * 32;
             off += encrypt_num * 32;
             address += encrypt_num * 32;
         }  
-        //bk_printf("lcnt:%d, last_data_cnt:%d,encrypt_num:%d\r\n", lcnt, last_data_cnt, encrypt_num);
+
         if(lcnt && param != LAST_WRITE_FIRMWARE) {  
             memcpy(tbuf + last_data_cnt, (buf+off), lcnt);
             last_data_cnt += lcnt;
@@ -195,21 +196,21 @@ OPERATE_RET tkl_ota_flash_write(uint32_t addr, uint8_t *buf, uint32_t len, void*
             //ty_encrypt((uint32_t *)restbuf, bbuf, 1, BK_ADDR_CHANGE(TO_PHYSICS, address - last_data_cnt));
             //ty_calc_crc((uint32_t *)bbuf, 1);
             tkl_watchdog_refresh();
-            tkl_flash_set_protect(FALSE);
+            //tkl_flash_set_protect(FALSE);
             if(tkl_flash_write(BK_ADDR_CHANGE(TO_PHYSICS, address - last_data_cnt), bbuf, 34)) {
-                tkl_flash_set_protect(TRUE);
+                //tkl_flash_set_protect(TRUE);
                 bk_printf("Write sector failed\r\n");
                 return OPRT_OS_ADAPTER_OTA_PROCESS_FAILED;
             }
-            tkl_flash_set_protect(TRUE);
+            //tkl_flash_set_protect(TRUE);
             tkl_watchdog_refresh();
         }
         
     }else {
         tkl_watchdog_refresh();
-        tkl_flash_set_protect(FALSE);
+        //tkl_flash_set_protect(FALSE);
         tkl_flash_write(addr, buf, len);
-        tkl_flash_set_protect(TRUE);
+        //tkl_flash_set_protect(TRUE);
         tkl_watchdog_refresh();
     }
 
