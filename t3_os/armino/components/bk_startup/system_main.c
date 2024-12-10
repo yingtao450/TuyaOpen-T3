@@ -484,6 +484,8 @@ static void user_app_thread( void *arg )
 	if(NULL != s_user_app_entry) {
 		bk_wdt_stop();
 		user_recovery_rfcali_data();
+		
+		__asm("BL __libc_init_array");
 
 		s_user_app_entry(0);
 	}

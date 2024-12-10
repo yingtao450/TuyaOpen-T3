@@ -44,6 +44,7 @@ foreach(head ${TUYA_HEADER_DIR_LIST})
 endforeach()
 
 list(APPEND srcs
+    	"src/DsoHack.cc"
 	"src/driver/tkl_adc.c"
 	"src/driver/tkl_flash.c"
 	"src/driver/tkl_gpio.c"
