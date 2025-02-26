@@ -320,6 +320,19 @@ bk_err_t bk_spi_read_bytes_async(spi_id_t id, void *data, uint32_t size);
 bk_err_t bk_spi_dma_write_bytes(spi_id_t id, const void *data, uint32_t size);
 
 /**
+ * @brief     Send data to the SPI port by dma from a given buffer and length in async mode
+ *
+ * @param id spi id
+ * @param data data buffer address
+ * @param size data length to send
+ *
+ * @return
+ *    - BK_OK: succeed
+ *    - others: other errors.
+ */
+bk_err_t bk_spi_dma_write_bytes_async(spi_id_t id, const void *data, uint32_t size);
+
+/**
  * @brief     SPI read bytes by dma from SPI buffer
  *
  * @param id SPI id
@@ -334,6 +347,22 @@ bk_err_t bk_spi_dma_write_bytes(spi_id_t id, const void *data, uint32_t size);
  *    - others: other errors.
  */
 bk_err_t bk_spi_dma_read_bytes(spi_id_t id, void *data, uint32_t size);
+
+/**
+ * @brief     SPI read bytes by dma from SPI buffer in async mode
+ *
+ * @param id SPI id
+ * @param data pointer to the buffer
+ * @param size data length to read
+ * @param timeout_ms timeout ms, if set BEKEN_WAIT_FOREVER, read will wait forever
+ *
+ * @return
+ *    - BK_ERR_SPI_NOT_INIT: SPI driver not init
+ *    - BK_ERR_SPI_INVALID_ID: SPI id number is invalid
+ *    - BK_ERR_SPI_ID_NOT_INIT: SPI id not init
+ *    - others: other errors.
+ */
+bk_err_t bk_spi_dma_read_bytes_async(spi_id_t id, void *data, uint32_t size);
 
 /**
  * @brief     SPI write and read bytes byte dma

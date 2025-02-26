@@ -72,9 +72,15 @@
 
 #if (LOG_DEV == DEV_UART)
 #if CONFIG_RELEASE_VERSION
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 #define SHELL_LOG_BUF1_NUM      1
 #define SHELL_LOG_BUF2_NUM      1
 #define SHELL_LOG_BUF3_NUM      1
+#else
+#define SHELL_LOG_BUF1_NUM      4
+#define SHELL_LOG_BUF2_NUM      16
+#define SHELL_LOG_BUF3_NUM      32
+#endif
 #else
 #if !CONFIG_UART_RING_BUFF
 #define SHELL_LOG_BUF1_NUM      8
@@ -179,8 +185,10 @@ typedef struct
 	u8     cmd_ind_buff[SHELL_IND_BUF_LEN];
 	beken_semaphore_t   ind_buf_semaphore;
 
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 	/* for async log with alloc buf */
 	struct co_list pending_list;
+#endif
 } cmd_line_t;
 
 #define GET_BLOCK_ID(blocktag)          ((blocktag) & 0xFF)
@@ -235,6 +243,7 @@ static SHELL_DECLARE_MEMORY_ATTR u16   buff1_free_list[SHELL_LOG_BUF1_NUM];
 static SHELL_DECLARE_MEMORY_ATTR u16   buff2_free_list[SHELL_LOG_BUF2_NUM];
 static SHELL_DECLARE_MEMORY_ATTR u16   buff3_free_list[SHELL_LOG_BUF3_NUM];
 
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 #define SHELL_LOG_BUF_TYPE_ALLOC       (1)
 #define SHELL_LOG_BUF_TYPE_STATIC_1    (2)
 #define SHELL_LOG_BUF_TYPE_STATIC_2    (3)
@@ -265,6 +274,7 @@ struct co_list buff_ex3_free_list;
     && (SHELL_LOG_BUF_EX2_DATA_LEN < SHELL_LOG_BUF_EX3_DATA_LEN)) == 0) )
 #error("SHELL TASK STATIC BUF LEN ERROR!!!")
 #endif
+#endif // (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 
 /*    queue sort ascending in blk_len.    */
 static free_queue_t       free_queue[3] =
@@ -1432,7 +1442,7 @@ static void shell_rx_wakeup(int gpio_id)
 	wakeup_process();
 	set_shell_event(SHELL_EVENT_WAKEUP);
 
-	//shell_log_raw_data((const u8*)"wakeup\r\n", sizeof("wakeup\r\n") - 1);
+	shell_log_raw_data((const u8*)"wakeup\r\n", sizeof("wakeup\r\n") - 1);
 
 	if(cmd_dev->dev_type == SHELL_DEV_UART)
 	{
@@ -1475,6 +1485,7 @@ static void shell_task_init(void)
 	rtos_init_semaphore_ex(&cmd_line_buf.rsp_buf_semaphore, 1, 1);  // one buffer for cmd_rsp.
 	rtos_init_semaphore_ex(&cmd_line_buf.ind_buf_semaphore, 1, 1);  // one buffer for cmd_ind.
 
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 	co_list_init(&cmd_line_buf.pending_list);
 
 	co_list_init(&buff_ex1_free_list);
@@ -1500,6 +1511,7 @@ static void shell_task_init(void)
 		print_node_t * node = (print_node_t *)&buff_ex[i * SHELL_LOG_BUF_EX3_LEN];
 		co_list_push_back(&buff_ex3_free_list, &node->hdr);
 	}
+#endif // (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 
 	create_shell_event();
 
@@ -1577,6 +1589,7 @@ void shell_task( void *para )
 	{
 		Events = wait_any_event(timeout);  // WAIT_EVENT;
 
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 		if(Events == 0)
 		{
 			if(!co_list_is_empty(&cmd_line_buf.pending_list))
@@ -1584,6 +1597,7 @@ void shell_task( void *para )
 				Events |= SHELL_EVENT_TX_SND;
 			}
 		}
+#endif
 
 		if(Events & SHELL_EVENT_TX_REQ)
 		{
@@ -1602,6 +1616,7 @@ void shell_task( void *para )
 			// TODO
 		}
 
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 		if(Events & SHELL_EVENT_TX_SND)
 		{
 			while (!co_list_is_empty(&cmd_line_buf.pending_list))
@@ -1633,6 +1648,7 @@ void shell_task( void *para )
 				}
 			}
 		}
+#endif
 
 		if(Events == 0)
 		{
@@ -1649,6 +1665,17 @@ void shell_task( void *para )
 				}
 			}
 		}
+
+#if ((CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0) == 0)
+		if(shell_pm_wake_flag)
+		{
+			timeout = SHELL_TASK_WAIT_TIME;
+		}
+		else
+		{
+			timeout = BEKEN_WAIT_FOREVER;
+		}
+#endif
 	}
 }
 
@@ -1830,15 +1857,23 @@ void shell_log_out_port(int level, char *prefix, const char *format, va_list ap)
 #endif
 // Modified by TUYA End
 
+	#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 	//packet_buf = alloc_log_blk(buf_len, &free_blk_tag);
 	packet_buf = NULL;
+	#else
+	packet_buf = alloc_log_blk(buf_len, &free_blk_tag);
+	#endif
 
 	if(packet_buf == NULL)
 	{
+		#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 // Modified by TUYA Start
 		//log_hint_out();
 		shell_cmd_ind_out_ex(prefix, format, ap, buf_len);
 // Modified by TUYA End
+		#else
+		log_hint_out();
+		#endif
 		return ;
 	}
 
@@ -2224,6 +2259,7 @@ void shell_cmd_ind_out(const char *format, ...)
 	cmd_ind_out(cmd_line_buf.cmd_ind_buff, data_len);
 }
 
+#if (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 // flag=1 means need check list cnt, call in not-interrupt_context
 static print_node_t *shell_cmd_alloc_buf_ex(int data_len_tmp, u8 flag)
 {
@@ -2315,14 +2351,17 @@ static print_node_t *shell_cmd_alloc_buf_ex(int data_len_tmp, u8 flag)
 
 	if(head_list)
 	{
+		u32  int_mask = shell_task_enter_critical();
 		if (!co_list_is_empty(head_list))
 		{
-			u32  int_mask = shell_task_enter_critical();
 			node = (print_node_t *)co_list_pop_front(head_list);
-			shell_task_exit_critical(int_mask);
-			node->buf_type = buf_type;
-			node->buf_len = buf_len;
+			if(node)
+			{
+				node->buf_type = buf_type;
+				node->buf_len = buf_len;
+			}
 		}
+		shell_task_exit_critical(int_mask);
 	}
 
 	return node;
@@ -2448,6 +2487,7 @@ ind_out_exit:
 	}
 }
 // Modified by TUYA End
+#endif // (CONFIG_SOC_BK7236 && CONFIG_SYS_CPU0)
 
 void shell_set_log_cpu(u8 req_cpu)
 {

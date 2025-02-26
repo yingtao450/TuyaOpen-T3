@@ -67,8 +67,9 @@ otp_item_t otp_apb_map[] = {
 	{OTP_GADC_CALIBRATION,           4,         0x3B8,     OTP_READ_WRITE},
 	{OTP_SDMADC_CALIBRATION,         4,         0x3BC,     OTP_READ_WRITE},
 	{OTP_DEVICE_ID,                  8,         0x3C0,     OTP_READ_WRITE},
-	{OTP_APB_TEST,                   5,         0x3C9,     OTP_READ_WRITE},
-	/*reserved 56,0x3C8*/
+	{OTP_MEMORY_CHECK_VDDDIG,        4,         0x3C8,     OTP_READ_WRITE},
+	{OTP_GADC_TEMPERATURE,           2,         0x3CC,     OTP_READ_WRITE},
+	/*reserved 48,0x3D0*/
 };
 
 otp2_item_t otp_ahb_map[] = {
@@ -80,6 +81,7 @@ static otp_driver_t s_otp = {0};
 
 static void otp_sleep()
 {
+#if CONFIG_OTP_SLEEP
 #if CONFIG_ATE_TEST
 	return ;
 #endif
@@ -87,6 +89,7 @@ static void otp_sleep()
 	otp_hal_sleep(&s_otp.hal);
 #else
 	otp_hal_deinit(&s_otp.hal);
+#endif
 #endif
 }
 

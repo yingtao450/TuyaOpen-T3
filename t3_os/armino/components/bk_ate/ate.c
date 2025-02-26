@@ -53,9 +53,9 @@ static bk_err_t ate_gpio_init(void)
 	{
 		gpio_value = bk_gpio_get_input(gpio_id);
 		if(gpio_value == ATE_ENABLE_GPIO_LEVEL) {
-            // Modified by TUYA Start
+			// Modified by TUYA Start
 			s_ate_enabled = true;
-            // Modified by TUYA End
+			// Modified by TUYA End
 			#if CONFIG_SHELL_ASYNCLOG
 			shell_set_uart_port(CONFIG_UART_ATE_PRINT_PORT);
 			#else

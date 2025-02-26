@@ -3270,6 +3270,8 @@ void sys_hal_enable_eth_int();
 
 void sys_hal_set_yuv_buf_clock_en(uint32_t value);
 void sys_hal_set_h264_clock_en(uint32_t value);
+void sys_hal_set_ana_reg11_apfms(uint32_t value);
+void sys_hal_set_ana_reg12_dpfms(uint32_t value);
 
 #if CONFIG_HAL_DEBUG_SYS
 void sys_struct_dump(uint32_t start, uint32_t end);

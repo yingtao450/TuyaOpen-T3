@@ -91,6 +91,7 @@ typedef struct {
 #define SPI_DIS_APLL_VSEL_VAL  0x5
 #define SPI_APLL_98M           98000000
 #define SPI_APLL_120M          120000000
+#define SPI_MAX_LENGTH         0x10000
 
 bk_err_t spi_hal_init(spi_hal_t *hal);
 bk_err_t spi_hal_configure(spi_hal_t *hal, const spi_config_t *config);

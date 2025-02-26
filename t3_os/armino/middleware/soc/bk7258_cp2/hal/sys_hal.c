@@ -2233,7 +2233,13 @@ void sys_hal_set_ana_cb_cal_manu_val(uint32_t value)
 	sys_ll_set_ana_reg5_vbias(value);
 }
 
+void sys_hal_set_ana_reg11_apfms(uint32_t value) {
+	sys_ll_set_ana_reg11_apfms(value);
+}
 
+void sys_hal_set_ana_reg12_dpfms(uint32_t value) {
+	sys_ll_set_ana_reg12_dpfms(value);
+}
 
 void sys_hal_set_rott_int_en(uint32_t value)
 {

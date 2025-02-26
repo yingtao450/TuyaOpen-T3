@@ -22,6 +22,8 @@
 
 #define CONFIG_SPI_MAX_BAUD_RATE                49000000     //49M
 
+void bk_delay(INT32 num);
+
 #if (!CONFIG_SYSTEM_CTRL)
 /* spi_clk(more than 1M) support list when source_clk = XTAL_26M
  * sort the numbers from largest to smallest, otherwize binary_search will not work
@@ -81,15 +83,27 @@ bk_err_t spi_hal_configure(spi_hal_t *hal, const spi_config_t *config)
 	spi_ll_enable_rx_fifo_int(hal->hw);
 
 	spi_hal_set_baud_rate(hal, config->baud_rate);
+#if (CONFIG_SPI_BYTE_INTERVAL)
+	spi_hal_set_byte_interval(hal, config->byte_interval);
+#endif
 
 	spi_ll_set_bit_width(hal->hw, config->bit_width);
 	spi_ll_set_first_bit(hal->hw, config->bit_order);
 	spi_ll_set_cpol(hal->hw, config->polarity);
 	spi_ll_set_cpha(hal->hw, config->phase);
+	spi_ll_set_rx_sample_edge(hal->hw, 0);
+
 	if (config->role == SPI_ROLE_SLAVE) {
 		spi_ll_set_role_slave(hal->hw);
 	} else {
 		spi_ll_set_role_master(hal->hw);
+
+		/* If two beken evb boards are tested against each other, for instance bk7239n/36n spi master with bk7239n/36n spi slave
+		 * rx_sample_edge will be equal to 2 using maximum spi baudrate(80MHz)
+		 */
+		if(config->baud_rate > 10000000){
+			spi_ll_set_rx_sample_edge(hal->hw, 1);
+		}
 	}
 	spi_ll_set_wire_mode(hal->hw, config->wire_mode);
 	if (config->wire_mode == SPI_4WIRE_MODE) {
@@ -154,7 +168,14 @@ bk_err_t spi_hal_set_baud_rate(spi_hal_t *hal, uint32_t baud_rate)
 		sys_hal_ana_reg11_vsel_set(SPI_EN_APLL_VSEL_VAL);
 		src_clk = SPI_APLL_98M;
 #else
-		src_clk = SPI_APLL_120M;
+		sys_hal_apll_en(1);
+		//set apll clock config
+		sys_hal_apll_cal_val_set(0x8973CA6F);
+		sys_hal_apll_config_set(0xC2A0AE86);
+		sys_hal_apll_spi_trigger_set(1);
+		bk_delay(10);
+		sys_hal_apll_spi_trigger_set(0);
+		src_clk = SPI_APLL_98M;
 #endif
 		sys_hal_spi_select_clock(hal->id, SPI_CLK_APLL);
 		clk_div = (src_clk / (2 * spi_clk)) & SPI_F_CLK_DIV_M;

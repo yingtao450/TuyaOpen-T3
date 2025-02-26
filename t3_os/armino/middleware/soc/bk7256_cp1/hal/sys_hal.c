@@ -7529,3 +7529,11 @@ void sys_hal_set_ana_reg19_cp2ctrl(sys_hw_t *hw, uint32_t value)
 #endif
 
 
+void sys_hal_set_ana_reg11_apfms(uint32_t value)
+{
+}
+
+void sys_hal_set_ana_reg12_dpfms(uint32_t value)
+{
+}
+

@@ -402,6 +402,7 @@ extern struct tcp_pcb ** const tcp_pcb_lists[NUM_TCP_PCB_LISTS];
   do {                                             \
     if(*(pcbs) == (npcb)) {                        \
       (*(pcbs)) = (*pcbs)->next;                   \
+      tcp_clear_ps_flag(npcb);                     \
     }                                              \
     else {                                         \
       struct tcp_pcb *tcp_tmp_pcb;                 \
@@ -410,6 +411,7 @@ extern struct tcp_pcb ** const tcp_pcb_lists[NUM_TCP_PCB_LISTS];
           tcp_tmp_pcb = tcp_tmp_pcb->next) {       \
         if(tcp_tmp_pcb->next == (npcb)) {          \
           tcp_tmp_pcb->next = (npcb)->next;        \
+          tcp_clear_ps_flag(npcb);                 \
           break;                                   \
         }                                          \
       }                                            \
@@ -437,6 +439,15 @@ extern struct tcp_pcb ** const tcp_pcb_lists[NUM_TCP_PCB_LISTS];
     tcp_active_pcbs_changed = 1;                   \
   } while (0)
 
+// Modified by TUYA Start
+u32_t tcp_ps_flag_get(void);
+void tcp_set_ps_flag(struct tcp_pcb *tpcb);
+void tcp_clear_ps_flag(struct tcp_pcb *tpcb);
+void tcp_force_clear_ps_flag(void);
+u32_t tcp_increase_rx_win_cnt_get(void);
+void tcp_increase_rx_win_cnt_set(void);
+void tcp_increase_rx_win_cnt_clear(void);
+// Modified by TUYA end
 
 /* Internal functions: */
 struct tcp_pcb *tcp_pcb_copy(struct tcp_pcb *pcb);

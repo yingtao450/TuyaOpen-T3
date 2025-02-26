@@ -514,6 +514,8 @@ void sys_drv_set_ana_cb_cal_manu(uint32_t value);
 void sys_drv_set_ana_cb_cal_trig(uint32_t value);
 UINT32 sys_drv_get_ana_cb_cal_manu_val(void);
 void sys_drv_set_ana_cb_cal_manu_val(uint32_t value);
+void sys_drv_set_ana_reg11_apfms(uint32_t value);
+void sys_drv_set_ana_reg12_dpfms(uint32_t value);
 void sys_drv_set_ana_vlsel_ldodig(uint32_t value);
 void sys_drv_set_ana_vhsel_ldodig(uint32_t value);
 void sys_drv_set_ana_vctrl_sysldo(uint32_t value);

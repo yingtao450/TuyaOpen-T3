@@ -24,5 +24,9 @@ menu "TUYA_SDK"
     config configUSE_RECURSIVE_MUTEXES
         bool "configUSE_RECURSIVE_MUTEXES"
         default y
+    
+    config SPI_ETH
+        bool "Support SPI Ethernet"
+        default n   
 
 endmenu

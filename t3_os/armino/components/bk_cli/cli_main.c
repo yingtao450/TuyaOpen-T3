@@ -1524,8 +1524,11 @@ int bk_cli_init(void)
 	cli_psram_init();
 #endif
 /*--------------BT&MultMedia cli command init end------------------*/
-
-
+#ifndef CONFIG_DEBUG_FIRMWARE
+#if (CONFIG_SPI_ETH == 1)
+	cli_spi_init();
+#endif
+#endif
 
 /*----------------platform cli command init begin------------------*/
 #if CONFIG_DEBUG_FIRMWARE
@@ -1535,6 +1538,14 @@ int bk_cli_init(void)
 	cli_mem_init();
 #endif
 
+#if ((CONFIG_SOC_BK7236XX) && (CLI_CFG_FPB == 1))
+	cli_fpb_init();
+#endif
+
+#if ((CONFIG_SOC_BK7236XX) && (CLI_CFG_DWT == 1))
+	cli_dwt_init();
+#endif
+    
 #if (CLI_CFG_TIMER == 1)
 	cli_timer_init();
 #endif

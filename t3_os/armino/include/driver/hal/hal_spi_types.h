@@ -114,6 +114,8 @@ typedef struct {
 	spi_dma_mode_t dma_mode;   /**< SPI whether use dma */
 	dma_id_t spi_tx_dma_chan;  /**< SPI tx dma channel */
 	dma_id_t spi_rx_dma_chan;  /**< SPI rx dma channel */
+	dma_data_width_t spi_tx_dma_width;  /**< SPI tx dma destination width */
+	dma_data_width_t spi_rx_dma_width;  /**< SPI rx dma source width */
 #endif
 } spi_config_t;
 

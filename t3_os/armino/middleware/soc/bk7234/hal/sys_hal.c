@@ -2504,6 +2504,13 @@ void sys_hal_set_ana_cb_cal_manu_val(uint32_t value)
     sys_ll_set_ana_reg5_vbias(value);
 }
 
+void sys_hal_set_ana_reg11_apfms(uint32_t value) {
+	sys_ll_set_ana_reg11_apfms(value);
+}
+
+void sys_hal_set_ana_reg12_dpfms(uint32_t value) {
+	sys_ll_set_ana_reg12_dpfms(value);
+}
 
 static void sys_hal_delay(volatile uint32_t times)
 {

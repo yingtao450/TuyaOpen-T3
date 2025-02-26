@@ -160,8 +160,12 @@ static u16_t tcp_port = TCP_LOCAL_PORT_RANGE_START;
 
 /* Incremented every coarse grained timer shot (typically every 500 ms). */
 u32_t tcp_ticks;
+// Modified by TUYA Start
+#if (CONFIG_TUYA_DTIM10_LWIP == 0)
 static const u8_t tcp_backoff[13] =
 { 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7};
+#endif
+// Modified by TUYA End
 /* Times per slowtmr hits */
 static const u8_t tcp_persist_backoff[7] = { 3, 6, 12, 24, 48, 96, 120 };
 
@@ -232,6 +236,13 @@ tcp_free_listen(struct tcp_pcb *pcb)
   memp_free(MEMP_TCP_PCB_LISTEN, pcb);
 }
 
+// Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+extern u32_t sys_now(void);
+u32_t tcp_slowtmr_ms = 0;
+#define MS_DIFF (sys_now() - tcp_slowtmr_ms)
+#endif
+// Modified by TUYA End
 /**
  * Called periodically to dispatch TCP timers.
  */
@@ -240,6 +251,14 @@ tcp_tmr(void)
 {
   /* Call tcp_fasttmr() every 250 ms */
   tcp_fasttmr();
+
+  // Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+  if((MS_DIFF >= TCP_SLOW_INTERVAL) && (tcp_timer & 1)) {
+    tcp_timer++;
+  }
+#endif
+  // Modified by TUYA End
 
   if (++tcp_timer & 1) {
     /* Call tcp_slowtmr() every 500 ms, i.e., every other timer
@@ -1186,6 +1205,113 @@ tcp_connect(struct tcp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port,
   return ret;
 }
 
+// Modified by TUYA Start
+#if CONFIG_TCP_TX_WIN_100MS
+volatile u32_t tcp_ps_flag = 0;
+volatile u32_t tcp_increase_rx_win_cnt = 0;
+
+void tcp_force_clear_ps_flag(void)
+{
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+  tcp_ps_flag = 0;
+  //ps_clear_dhcp_ongoing_prevent();
+  rtos_exit_critical(int_level);
+}
+
+u32_t tcp_ps_flag_get(void)
+{
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+  u32_t flag = tcp_ps_flag;
+  rtos_exit_critical(int_level);
+  return flag;
+}
+
+void tcp_set_ps_flag(struct tcp_pcb *tpcb)
+{
+  if (tpcb == NULL)
+    return;
+  u8_t idx = tpcb->ps_idx;
+  if(idx > 31){
+    struct tcp_pcb *pcb;
+    u32_t i;
+    for (pcb = tcp_active_pcbs,i = 0; pcb != NULL; pcb = pcb->next, i++) {
+      if(pcb == tpcb) {
+        if(i < 32)
+          idx = i ;
+        break;
+      }
+    }
+  }
+  //os_printf("set tcp_set_ps_flag %d %d\r\n", tpcb->ps_idx,idx);
+
+  if(idx > 31)
+    return;
+
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+
+//  if(tcp_ps_flag & (0x1u << idx))
+//    return;
+
+  tpcb->ps_idx = idx;
+  tcp_ps_flag |= (0x1u << idx);
+  if(tcp_ps_flag)
+  {
+    tcp_increase_rx_win_cnt_clear();
+    //os_printf("set tcp_ps_flag 0x%x\r\n", tcp_ps_flag);
+    //ps_set_dhcp_ongoing_prevent();
+    //tcp_ps_flag_start_timeout_check(10000);
+  }
+  rtos_exit_critical(int_level);
+}
+
+void tcp_clear_ps_flag(struct tcp_pcb *tpcb)
+{
+  if (tpcb == NULL)
+    return;
+  u8_t idx = tpcb->ps_idx;
+  if(idx > 31)
+    return;
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+
+//  if((tcp_ps_flag & (0x1u << idx)) == 0)
+//    return;
+
+  tcp_ps_flag &= ~(0x1u << idx);
+  tpcb->ps_idx = 255;
+  //os_printf("clear tcp_ps_flag 0x%x\r\n", tcp_ps_flag);
+  rtos_exit_critical(int_level);
+}
+
+u32_t tcp_increase_rx_win_cnt_get(void)
+{
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+  u32_t cnt = tcp_increase_rx_win_cnt;
+  rtos_exit_critical(int_level);
+  return cnt;
+}
+
+void tcp_increase_rx_win_cnt_set(void)
+{
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+  tcp_increase_rx_win_cnt++;
+  rtos_exit_critical(int_level);
+}
+
+void tcp_increase_rx_win_cnt_clear(void)
+{
+  volatile uint32_t int_level = 0;
+  int_level = rtos_enter_critical();
+  tcp_increase_rx_win_cnt = 0;
+  rtos_exit_critical(int_level);
+}
+#else
+// Modified by TUYA End
 void tcp_force_clear_ps_flag(void)
 {
 
@@ -1220,6 +1346,7 @@ void tcp_increase_rx_win_cnt_clear(void)
 {
 
 }
+#endif
 
 /**
  * Called every 500 ms and implements the retransmission timer and the timer that
@@ -1241,6 +1368,16 @@ tcp_slowtmr(void)
 
   ++tcp_ticks;
   ++tcp_timer_ctr;
+
+  // Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+  u16_t diff_cnt = 0;
+  if((MS_DIFF > TCP_SLOW_INTERVAL)) {
+    diff_cnt = (MS_DIFF - TCP_SLOW_INTERVAL) / TCP_SLOW_INTERVAL;
+  }
+  tcp_slowtmr_ms = sys_now();
+#endif
+  // Modified by TUYA Endif
 
 tcp_slowtmr_start:
   /* Steps through all of the active PCBs. */
@@ -1310,9 +1447,19 @@ tcp_slowtmr_start:
         /* Increase the retransmission timer if it is running */
         if ((pcb->rtime >= 0) && (pcb->rtime < 0x7FFF)) {
           ++pcb->rtime;
+          // Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+          pcb->rtime += diff_cnt;
+#endif
+          // Modified by TUYA End
         }
-
+// Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+      if ((pcb->state == SYN_SENT && pcb->rtime >= pcb->rto) || (pcb->state != SYN_SENT && pcb->rtime >= pcb->rto)) {
+#else
         if (pcb->rtime >= pcb->rto) {
+#endif
+// Modified by TUYA End
           /* Time for a retransmission. */
           LWIP_DEBUGF(TCP_RTO_DEBUG, ("tcp_slowtmr: rtime %"S16_F
                                       " pcb->rto %"S16_F"\n",
@@ -1324,6 +1471,15 @@ tcp_slowtmr_start:
             /* Double retransmission time-out unless we are trying to
              * connect to somebody (i.e., we are in SYN_SENT). */
             if (pcb->state != SYN_SENT) {
+// Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+              int calc_rto = 0;
+              if(pcb->rto < 10)
+                  calc_rto = pcb->rto * 2;
+              else
+                  calc_rto = pcb->rto + 10;
+              pcb->rto = (s16_t)LWIP_MIN(calc_rto, 0x7FFF);
+#else
               u8_t backoff_idx = LWIP_MIN(pcb->nrtx, sizeof(tcp_backoff) - 1);
               int calc_rto = ((pcb->sa >> 3) + pcb->sv) << tcp_backoff[backoff_idx];
               pcb->rto = (s16_t)LWIP_MIN(calc_rto, 0x7FFF);
@@ -1331,6 +1487,8 @@ tcp_slowtmr_start:
               // smart RTO strategy
               pcb->rto = bk_recalc_tcp_rto_internal(pcb->rto, pcb->nrtx, pcb->sa, pcb->sv);
 #endif
+#endif
+// Modified by TUYA End
             }
 
             /* Reset the retransmission timer. */
@@ -1351,6 +1509,16 @@ tcp_slowtmr_start:
                                          " ssthresh %"TCPWNDSIZE_F"\n",
                                          pcb->cwnd, pcb->ssthresh));
             pcb->bytes_acked = 0;
+
+            // Modified by TUYA Start
+#ifdef CONFIG_WIFI_DTIM10_TEMP_DISABLED
+            {// when station period response arp req, offline may occurred, and we add a arp reply at each tcp retry to improve this situation
+                bk_printf("tcp retry cnt %d, send arp_reply.\r\n",pcb->nrtx);
+                void etharp_reply(void);
+                etharp_reply();
+            }
+#endif
+            // Modified by TUYA End
 
             /* The following needs to be called AFTER cwnd is set to one
                mss - STJ */
@@ -1984,6 +2152,11 @@ tcp_alloc(u8_t prio)
     pcb->keep_intvl = TCP_KEEPINTVL_DEFAULT;
     pcb->keep_cnt   = TCP_KEEPCNT_DEFAULT;
 #endif /* LWIP_TCP_KEEPALIVE */
+    // Modified by TUYA Start
+#if CONFIG_TCP_TX_WIN_100MS
+    pcb->ps_idx = 255;
+#endif
+    // Modified by TUYA End
   }
   return pcb;
 }
@@ -2263,6 +2436,13 @@ tcp_pcb_remove(struct tcp_pcb **pcblist, struct tcp_pcb *pcb)
   pcb->state = CLOSED;
   /* reset the local port to prevent the pcb from being 'bound' */
   pcb->local_port = 0;
+
+  // Modified by TUYA Start
+  #if CONFIG_TCP_TX_WIN_100MS
+  if(*pcblist == tcp_active_pcbs)
+      tcp_clear_ps_flag(pcb);
+  #endif
+  // Modified by TUYA End
 
   LWIP_ASSERT("tcp_pcb_remove: tcp_pcbs_sane()", tcp_pcbs_sane());
 }

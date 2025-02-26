@@ -12,10 +12,11 @@
 
 
 const TKL_WIRED_DESC_T c_wired_desc = {
+    .init               = tkl_wired_init,
     .get_status         = tkl_wired_get_status,
     .set_status_cb      = tkl_wired_set_status_cb,
-    .set_ip             = tkl_wired_set_ip,
     .get_ip             = tkl_wired_get_ip,
+	.set_ip             = tkl_wired_set_ip,
     .get_mac            = tkl_wired_get_mac,
     .set_mac            = tkl_wired_set_mac,
 };

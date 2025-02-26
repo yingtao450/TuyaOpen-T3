@@ -171,6 +171,7 @@ typedef struct {
         uint32_t  ip4;
     } u_addr;
     IP_ADDR_TYPE type;
+    BOOL_T dhcpen;  /* enable dhcp or not */
 } TUYA_IP_ADDR_T;
 
 #define IPADDR4_FMT           "%d.%d.%d.%d"
@@ -633,6 +634,15 @@ typedef enum {
     TUYA_GPIO_LEVEL_HIGH,
     TUYA_GPIO_LEVEL_NONE,
 } TUYA_GPIO_LEVEL_E;
+
+typedef enum {
+    TUYA_GPIO_WAKEUP_LOW = 0,
+    TUYA_GPIO_WAKEUP_HIGH,
+    TUYA_GPIO_WAKEUP_RISE,
+    TUYA_GPIO_WAKEUP_FALL,
+    TUYA_GPIO_WAKEUP_MAX,
+} TUYA_GPIO_WAKE_TYPE_E;
+
 
 /**
  * @brief gpio direction
@@ -1131,12 +1141,12 @@ typedef struct {
  *  ota pack data, write to flash addr(start_addr + offset)
  */
 typedef struct {
-    uint32_t   total_len;     ///< ota image totle len   
+    uint32_t   total_len;     ///< ota image totle len
+    uint32_t   start_addr;    ///< ota flash start addr
     uint32_t   offset;        ///< ota image offset
     uint8_t* data;          ///< ota data
     uint32_t   len;           ///< ota data len
     void*  pri_data;      ///< private pointer
-    uint32_t   start_addr;    ///< ota flash start addr 
 } TUYA_OTA_DATA_T;
 
 /**
@@ -1157,7 +1167,6 @@ typedef enum {
     TUYA_UART_SYS = 0,
     TUYA_UART_USB,
     TUYA_UART_SDIO,
-    TUYA_UART_WCH,
     TUYA_UART_MAX_TYPE,
 } TUYA_UART_TYPE_E;
 
@@ -1208,7 +1217,7 @@ typedef enum {
  * 
  */
 typedef struct {
-    uint32_t                      baudrate;
+    uint32_t                    baudrate;
     TUYA_UART_PARITY_TYPE_E     parity;
     TUYA_UART_DATA_LEN_E        databits;
     TUYA_UART_STOP_LEN_E        stopbits;
@@ -1284,7 +1293,7 @@ typedef struct {
  */
 typedef struct {
     TUYA_GPIO_NUM_E gpio_num;
-    TUYA_GPIO_LEVEL_E level;
+    TUYA_GPIO_WAKE_TYPE_E  level;
 } TUYA_WAKEUP_SOURCE_GPIO_T;
 
 /**
@@ -1376,6 +1385,10 @@ typedef enum {
     TRANS_RECV = 0,
     TRANS_SEND = 1,
 }TUYA_TRANS_TYPE_E;
+
+
+/* tuyaos definition of IP addr */
+typedef uint32_t TUYA_IP_ADDR_T;
 
 /* tuyaos errorno */
 typedef int TUYA_ERRNO;

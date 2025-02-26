@@ -22,19 +22,19 @@
 #define __ETHERNETIF_H__
 
 #include "common/bk_include.h"
-
+// Modified by TUYA Start
 #if (CONFIG_ETH || CONFIG_SPI_ETH)
 #include "lwip/err.h"
 #include "lwip/netif.h"
 #endif
-
+// Modified by TUYA End
 #ifdef CONFIG_ETH
 /* Exported functions ------------------------------------------------------- */
 err_t ethernetif_init(struct netif *netif);
 void ethernet_link_thread(void *argument);
 
 #endif /* CONFIG_ETH */
-
+// Modified by TUYA Start
 #if CONFIG_SPI_ETH
 /**
  * Helper struct to hold private data used to operate your ethernet interface.
@@ -51,6 +51,6 @@ int net_spi_eth_init(void);
 void *net_get_spi_eth_handle(void);
 void *net_get_sta_handle(void);
 #endif /* CONFIG_SPI_ETH */
-
+// Modified by TUYA End
 #endif /* __ETHERNETIF_H__ */
 

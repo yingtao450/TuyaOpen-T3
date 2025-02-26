@@ -357,13 +357,14 @@ dns_init(void)
  * @param numdns the index of the DNS server to set must be < DNS_MAX_SERVERS
  * @param dnsserver IP address of the DNS server to set
  */
+ // Modified by TUYA Start
 #ifdef CONFIG_SPI_ETH
 void
 dns_setserver(u8_t numdns, const ip_addr_t *dnsserver)
 {
     int i, j;
     ip_addr_t  tmp_dns_servers[DNS_MAX_SERVERS] = { 0 };
-	
+
     if (dnsserver == NULL) {
       return;
     }
@@ -375,7 +376,7 @@ dns_setserver(u8_t numdns, const ip_addr_t *dnsserver)
     }
 
     memcpy(tmp_dns_servers, dns_servers, sizeof(tmp_dns_servers));
-	
+
     for (i = 0, j = 1; i < (DNS_MAX_SERVERS - 1); i++, j++) {
       dns_servers[j] = tmp_dns_servers[i];
     }
@@ -394,7 +395,7 @@ dns_setserver(u8_t numdns, const ip_addr_t *dnsserver)
   }
 }
 #endif /* CONFIG_SPI_ETH */
-
+// Modified by TUYA End
 /**
  * @ingroup dns
  * Obtain one of the currently configured DNS server.

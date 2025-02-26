@@ -44,7 +44,7 @@
 #include "tal_log.h"
 #endif /* SPI_LAN_PKT_TRACE */
 
-#define INT_PIN  TUYA_GPIO_NUM_13
+#define INT_PIN  TUYA_GPIO_NUM_18
 #define RST_PIN  TUYA_GPIO_NUM_12
 #define CS_PIN   TUYA_GPIO_NUM_15
 #define SCK_PIN  TUYA_GPIO_NUM_14
@@ -56,11 +56,9 @@
 #define SPI_ETHERNET_IFNAME1 'n'
 #define CH390_THRAD_NAME "spi_eth_proc"
 
-#define SPI_ETHERNET_FREQ_DEF 1024000
-#define SPI_ETHERNET_THREAD_SIZE 2048
+#define SPI_ETHERNET_FREQ_DEF 10000000
+#define SPI_ETHERNET_THREAD_SIZE 4096
 #define SPI_ETHERNET_THREAD_PRIORITY 5
-
-static SemaphoreHandle_t spi_eth_sem = NULL;
 
 #ifdef SPI_LAN_LOCK_SUPPORT
 TKL_MUTEX_HANDLE spi_eth_lock = NULL;
@@ -72,7 +70,7 @@ TKL_THREAD_HANDLE spi_eth_thread = NULL;
 
 unsigned int interrupt_cnt = 0;
 unsigned char last_interrupt_status = 0;
-unsigned char spi_netif_link_status = 0; 
+//unsigned char spi_netif_link_status = 0; 
 
 #ifdef CH390_TX_ERR_CHK_EN
 static unsigned short trpa_value = 0;
@@ -116,6 +114,16 @@ void spi_eth_status_dump(void);
 void spi_ethernetif_input(struct netif *netif);
 extern void *net_get_spi_eth_handle(void);
 extern void *net_get_sta_handle(void);
+
+#define SPI_ETH_QUEUE_NUM 100
+static QueueHandle_t spi_eth_queue = NULL;
+typedef struct {
+#define SPI_ETH_MSG_LINK_UP         0x01
+#define SPI_ETH_MSG_LINK_DOWN       0x02
+#define SPI_ETH_MSG_INT_IND         0x04 
+    uint32_t             type;                  /* ISR message type */
+    uint32_t             data;                  /* Poniter addr of message data */
+} spi_eth_msg_t;
 
 #ifdef SPI_LAN_PKT_TRACE
 void tuya_ethernetif_pkt_decode(unsigned char direction,  void *netif, void *pbuf);
@@ -185,7 +193,7 @@ void ch390_print_info()
     vid = ch390_get_vendor_id();
     pid = ch390_get_product_id();
     ch390_get_mac(mac_addr);
-    SPI_LAN_DBG("%s: thernet adapter %04x%04x mac %02x:%02x:%02x:%02x:%02x:%02x ver %d",
+    SPI_LAN_DBG("%s: ethernet adapter %04x%04x mac %02x:%02x:%02x:%02x:%02x:%02x ver %d",
         __func__, vid, pid, mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4],
         mac_addr[5], ver);
 }
@@ -193,17 +201,21 @@ void ch390_print_info()
 
 static void ch390_interrupt_handler(void *args)
 {
-    int ret;
+    BaseType_t ret;
+    spi_eth_msg_t msg;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     uint32_t irq_status = taskENTER_CRITICAL_FROM_ISR();
+    msg.type = SPI_ETH_MSG_INT_IND;
+    msg.data = 0;
 
-    ret = xSemaphoreGiveFromISR(spi_eth_sem, &xHigherPriorityTaskWoken);
+    ret = xQueueSendFromISR(spi_eth_queue, &msg, &xHigherPriorityTaskWoken);
+    ret |= xQueueSendFromISR(spi_eth_queue, &msg, &xHigherPriorityTaskWoken);
     if (pdTRUE == xHigherPriorityTaskWoken) {
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 #ifdef SPI_LAN_DBG_TRACE
     if (pdFAIL == ret) {
-        SPI_LAN_DBG("%s: call xSemaphoreGiveFromISR failed(ret=%d)", __func__, ret);
+        SPI_LAN_DBG("%s: call xQueueSendFromISR failed(ret=%d)", __func__, ret);
     }
 #endif /* SPI_LAN_DBG_TRACE */
     interrupt_cnt++;
@@ -212,9 +224,9 @@ static void ch390_interrupt_handler(void *args)
 
 static void spi_eth_sys_deinit()
 {
-    if (spi_eth_sem) {
-        vSemaphoreDelete(spi_eth_sem);
-        spi_eth_sem = NULL;
+    if (spi_eth_queue) {
+        vQueueDelete(spi_eth_queue);
+        spi_eth_queue = NULL;
     }
 
  #ifdef SPI_LAN_LOCK_SUPPORT
@@ -238,14 +250,72 @@ static void spi_eth_sys_deinit()
 #endif /* SPI_LAN_LINK_SAFE_NET_CHK */
 }
 
+static uint32_t get_ch390_int_status(void)
+{
+    uint32_t status;
+    uint8_t link_status = 0;
+
+    SPI_ETHERNET_LOCK_X();
+
+    status = ch390_get_int_status();
+    if (status & ISR_LNKCHG) {
+        spi_lan_delay_us(100000);
+        ch390_write_phy(CH390_GPR, 0);
+        while(ch390_read_phy(CH390_GPCR));
+        link_status = ch390_get_link_status();
+        if (link_status) {
+            ch390_write_reg(CH390_ISR, ISR_LNKCHG);
+        }
+    }
+
+    SPI_ETHERNET_UNLOCK_X();
+
+    return ((status << 8) | link_status);
+}
+
+static void spi_eth_link_status_cb(struct netif *netif)
+{
+    BaseType_t ret;
+    uint32_t ip;
+    uint32_t mask;
+    uint32_t gw;
+    spi_eth_msg_t msg;
+
+    if (NULL == netif) {
+        return;
+    }
+
+    ip = netif->ip_addr.addr;
+    mask = netif->netmask.addr;
+    gw = netif->gw.addr;
+    msg.type = msg.data = 0;
+
+    if (netif_is_up(netif)) {
+        SPI_LAN_DBG("%s: ip "IPSTR" mask "IPSTR" gw "IPSTR"\r\n",
+            __func__, IPADDR2STR(ip), IPADDR2STR(mask), IPADDR2STR(gw));
+        if (ip && mask && gw) {
+            msg.type = SPI_ETH_MSG_LINK_UP;
+            ret = xQueueSend(spi_eth_queue, &msg, 0);
+ //#ifdef SPI_LAN_DBG_TRACE           
+            if (pdFAIL == ret) {
+                SPI_LAN_DBG("%s: call xQueueSend failed(ret=%d)", __func__, ret);
+            }
+ //#endif           
+        }
+    } else {
+        SPI_LAN_DBG("%s: link down %d\r\n", __func__);
+    }
+}
+
 static void spi_eth_thread_handle(void *args)
 {
     struct ethernetif *ether;
-    TUYA_GPIO_LEVEL_E level;
-     struct netif *sta_netif;
-
+    struct netif *sta_netif;
+    uint32_t status;
     uint8_t int_status;
     uint8_t link_status;
+    spi_eth_msg_t msg;
+    TUYA_GPIO_LEVEL_E level;
 
 #ifdef CH390_TX_ERR_CHK_EN
     uint8_t trpal, trpah, mwrl, mwrh;
@@ -258,44 +328,46 @@ static void spi_eth_thread_handle(void *args)
         return;
     }
     
-    while (xSemaphoreTake(spi_eth_sem, portMAX_DELAY)) {
+    while (xQueueReceive(spi_eth_queue, &msg, portMAX_DELAY)) {
+        if (msg.type & SPI_ETH_MSG_LINK_UP) {
+            if (spi_netif_link_chg_cb) {
+                spi_netif_link_chg_cb(TKL_WIRED_LINK_UP);
+            }
+        }
         while (OPRT_OK == tkl_gpio_read(spi_eth_cfg.int_gpio, &level) && (level == TUYA_GPIO_LEVEL_HIGH)) {
-        SPI_ETHERNET_LOCK_X(); 
-        int_status = ch390_get_int_status();
-        
-        //SPI_LAN_DBG("%s: int_status 0x%x", __func__, int_status);
+        status = get_ch390_int_status();
+        link_status = status & 0xFF;
+        int_status = (status >> 8) & 0xFF;
+
+        //SPI_LAN_DBG("%s: int_status 0x%x link_status 0x%x -->", __func__, int_status, link_status);
         if (int_status & ISR_LNKCHG) {
-            spi_lan_delay_us(100000);
-            ch390_write_phy(CH390_GPR, 0);
-            while(ch390_read_phy(CH390_GPCR));
-            link_status = ch390_get_link_status();
             if (link_status) {
-                SPI_LAN_DBG("%s: netif link up link_status 0x%x", __func__, link_status);
-                ch390_write_reg(CH390_ISR, ISR_LNKCHG);
+                SPI_LAN_DBG("%s: ch390 link up", __func__);
                 netifapi_netif_set_link_up(ch390_netif);
                 netifapi_netif_set_up(ch390_netif);
                 if (!is_sta_link_actived()) {
                     netifapi_netif_set_default(ch390_netif);
                 }
+                netif_set_status_callback(ch390_netif, spi_eth_link_status_cb);
                 netifapi_dhcp_start(ch390_netif);
-                if (spi_netif_link_chg_cb) {
-                    spi_netif_link_chg_cb(TKL_WIRED_LINK_UP);
-                }
-                spi_netif_link_status = 1;
+                //if (spi_netif_link_chg_cb) {
+                //    spi_netif_link_chg_cb(TKL_WIRED_LINK_UP);
+                //}
+                //spi_netif_link_status = 1;
             } else {
-                SPI_LAN_DBG("%s: netif link down link_status 0x%x", __func__, link_status);
-                netifapi_dhcp_stop(ch390_netif);
-                netifapi_netif_set_link_down(ch390_netif);
-                netifapi_netif_set_down(ch390_netif);
+                SPI_LAN_DBG("%s: ch390 link down", __func__);
                 if (spi_netif_link_chg_cb) {
                     spi_netif_link_chg_cb(TKL_WIRED_LINK_DOWN);
                 }
-                                
+                netif_set_status_callback(ch390_netif, NULL);
+                netifapi_dhcp_stop(ch390_netif);
+                netifapi_netif_set_down(ch390_netif);
+                netifapi_netif_set_link_down(ch390_netif);
                 sta_netif = net_get_sta_handle();
                 if (sta_netif) {
                     netifapi_netif_set_default(sta_netif);
                 }
-                spi_netif_link_status = 0;
+                //spi_netif_link_status = 0;
             }
         }
 
@@ -347,9 +419,9 @@ static void spi_eth_thread_handle(void *args)
         }
 
         last_interrupt_status = int_status;
-        SPI_ETHERNET_UNLOCK_X();
+        //SPI_LAN_DBG("%s: int_status 0x%x link_status 0x%x <--", __func__, int_status, link_status);
         } /* end while (OPRT_OK == tkl_gpio_read(spi_eth_cfg.int_gpio, &level) && (level == TUYA_GPIO_LEVEL_HIGH)) { */
-        tkl_gpio_write(spi_eth_cfg.int_gpio, TUYA_GPIO_LEVEL_LOW);
+        //tkl_gpio_write(spi_eth_cfg.int_gpio, TUYA_GPIO_LEVEL_LOW);
     } /* end while(xQueueReceive(spi_ethernet_queue, message, portMAX_DELAY)) { */
 
     //Thread destory
@@ -386,9 +458,9 @@ static int spi_eth_sys_init(void)
 
     ch390_interface_register(ch390_interface);
 
-    spi_eth_sem = xSemaphoreCreateBinary();
-    if (NULL == spi_eth_sem) {
-        SPI_LAN_ERR("%s: call xSemaphoreCreateBinary create spi eth sem failed", __func__);
+    spi_eth_queue = xQueueCreate(SPI_ETH_QUEUE_NUM, sizeof(spi_eth_msg_t));
+    if (NULL == spi_eth_queue) {
+        SPI_LAN_ERR("%s: call xQueueCreate create spi eth queue failed", __func__);
         goto err_out;
     }
 
@@ -430,9 +502,9 @@ static int spi_eth_sys_init(void)
     return ret;
 
 err_out:
-    if (spi_eth_sem) {
-        vSemaphoreDelete(spi_eth_sem);
-        spi_eth_sem = NULL;
+    if (spi_eth_queue) {
+        vQueueDelete(spi_eth_queue);
+        spi_eth_queue = NULL;
     }
 
 #ifdef SPI_LAN_LOCK_SUPPORT
@@ -450,9 +522,20 @@ err_out:
     return ret;
 }
 
-static int spi_eth_int_init(UINT32_T gpio_num, const TUYA_GPIO_IRQ_T *cfg)
+static int spi_eth_int_init(uint32_t gpio_num, const TUYA_GPIO_IRQ_T *cfg)
 {
     int ret;
+    TUYA_GPIO_BASE_CFG_T bs_cfg;
+
+    bs_cfg.direct = TUYA_GPIO_INPUT;
+    bs_cfg.level = TUYA_GPIO_LEVEL_HIGH;
+    bs_cfg.mode = TUYA_GPIO_PULLDOWN;
+
+    ret = tkl_gpio_init(gpio_num, &bs_cfg);
+    if (ret < 0) {
+        SPI_LAN_ERR("%s: call tkl_gpio_init failed(ret=%d)", __func__, ret);
+        return ret;
+    }
 
     ret = tkl_gpio_irq_init(gpio_num, cfg);
     if (ret < 0) {
@@ -865,10 +948,13 @@ void spi_ethernetif_input(struct netif *netif)
         return;
     }
 
+    SPI_ETHERNET_LOCK_X();
+
     /* move received packet into a new pbuf */
     p = spi_eth_low_level_input(netif);
     /* no packet could be read, silently ignore this */
     if (p == NULL) {
+        SPI_ETHERNET_UNLOCK_X();
         return;
     }
     /* points to packet payload, which starts with an Ethernet header */
@@ -895,7 +981,9 @@ void spi_ethernetif_input(struct netif *netif)
         pbuf_free(p);
         p = NULL;
         break;
-  }
+    }
+
+    SPI_ETHERNET_UNLOCK_X();
 }
 
 err_t spi_ethernetif_init(struct netif *netif)

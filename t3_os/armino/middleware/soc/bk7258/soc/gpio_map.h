@@ -23,7 +23,7 @@ extern "C" {
 #include <soc/soc.h>
 #include "sdkconfig.h"
 // Modified by TUYA Start
-#include "tuya_gpio_map.h"
+//#include "tuya_gpio_map.h"
 // Modified by TUYA End
 #define GPIO_DEV_MAP  \
 {\

@@ -117,10 +117,10 @@ typedef struct {
 	gpio_dev_map(SPI##id##_LL_MISO_PIN, GPIO_DEV_SPI##id##_MISO);\
 	bk_gpio_pull_up(SPI##id##_LL_CSN_PIN);\
 	bk_gpio_pull_up(SPI##id##_LL_SCK_PIN);\
-	bk_gpio_set_capacity(SPI##id##_LL_CSN_PIN, 0);\
-	bk_gpio_set_capacity(SPI##id##_LL_SCK_PIN, 0);\
-	bk_gpio_set_capacity(SPI##id##_LL_MOSI_PIN, 0);\
-	bk_gpio_set_capacity(SPI##id##_LL_MISO_PIN, 0);\
+	bk_gpio_set_capacity(SPI##id##_LL_CSN_PIN, 3);\
+	bk_gpio_set_capacity(SPI##id##_LL_SCK_PIN, 3);\
+	bk_gpio_set_capacity(SPI##id##_LL_MOSI_PIN, 3);\
+	bk_gpio_set_capacity(SPI##id##_LL_MISO_PIN, 3);\
 } while(0)
 
 static spi_driver_t s_spi[SOC_SPI_UNIT_NUM] = {
@@ -315,8 +315,13 @@ static void spi_id_deinit_common(spi_id_t id)
 	icu_disable_spi_interrupt(id);
 	power_down_spi(id);
 #endif
-	rtos_deinit_semaphore(&(s_spi[id].tx_sema));
-	rtos_deinit_semaphore(&(s_spi[id].rx_sema));
+	if(s_spi[id].tx_sema){
+		rtos_deinit_semaphore(&(s_spi[id].tx_sema));
+	}
+
+	if(s_spi[id].rx_sema){
+		rtos_deinit_semaphore(&(s_spi[id].rx_sema));
+	}
 	s_spi[id].id_init_bits &= ~BIT(id);
 }
 
@@ -355,7 +360,25 @@ static void spi_dma_tx_finish_handler(dma_id_t id)
 	if (s_spi[s_current_spi_dma_wr_id].is_tx_blocked) {
 		rtos_set_semaphore(&s_spi[s_current_spi_dma_wr_id].tx_sema);
 		s_spi[s_current_spi_dma_wr_id].is_tx_blocked = false;
+	// Modified by TUYA Start
+	} else {
+		spi_hal_enable_tx_fifo_int(&s_spi[s_current_spi_dma_wr_id].hal);
+		for (int i = 0; i <= 500; i++) {
+			delay_us(1);
+			SPI_LOGD("index = %d, id=%d, tx_fifo_int_status = %d\n", i, id, spi_hal_is_tx_fifo_int_triggered(&s_spi[s_current_spi_dma_wr_id].hal));
+			if(spi_hal_is_tx_fifo_int_triggered(&s_spi[s_current_spi_dma_wr_id].hal)) {
+				delay_us(1);
+				break;
+			}
+			if(i == 500)
+				SPI_LOGE("wait tx fifo empty timeout.\n");
+		}
+		spi_hal_disable_tx_fifo_int(&s_spi[s_current_spi_dma_wr_id].hal);
+		spi_hal_clear_tx_fifo_int_status(&s_spi[s_current_spi_dma_wr_id].hal);
+		spi_hal_disable_tx(&s_spi[s_current_spi_dma_wr_id].hal);
+		bk_dma_stop(s_spi[s_current_spi_dma_wr_id].spi_tx_dma_chan);
 	}
+	// Modified by TUYA End
 }
 
 static void spi_dma_rx_finish_handler(dma_id_t id)
@@ -367,10 +390,15 @@ static void spi_dma_rx_finish_handler(dma_id_t id)
 	if (s_spi[s_current_spi_dma_rd_id].is_rx_blocked) {
 		rtos_set_semaphore(&s_spi[s_current_spi_dma_rd_id].rx_sema);
 		s_spi[s_current_spi_dma_rd_id].is_rx_blocked = false;
+	// Modified by TUYA Start
+	} else {
+		spi_hal_disable_rx(&s_spi[s_current_spi_dma_rd_id].hal);
+		bk_dma_stop(s_spi[s_current_spi_dma_rd_id].spi_rx_dma_chan);
+	// Modified by TUYA End
 	}
 }
 
-static void spi_dma_tx_init(spi_id_t id, dma_id_t spi_tx_dma_chan)
+static void spi_dma_tx_init(spi_id_t id, dma_id_t spi_tx_dma_chan, dma_data_width_t spi_tx_dma_width)
 {
 	dma_config_t dma_config = {0};
 	spi_int_config_t int_cfg_table[] = SPI_INT_CONFIG_TABLE;
@@ -383,7 +411,7 @@ static void spi_dma_tx_init(spi_id_t id, dma_id_t spi_tx_dma_chan)
 	dma_config.src.width = DMA_DATA_WIDTH_32BITS;
 	dma_config.src.addr_inc_en = DMA_ADDR_INC_ENABLE;
 	dma_config.src.addr_loop_en = DMA_ADDR_LOOP_DISABLE;
-	dma_config.dst.width = DMA_DATA_WIDTH_8BITS;
+	dma_config.dst.width = spi_tx_dma_width;
 	dma_config.dst.start_addr = SPI_R_DATA(id);
 	dma_config.dst.dev = int_cfg_table[id].dma_dev;
 
@@ -396,7 +424,7 @@ static void spi_dma_tx_init(spi_id_t id, dma_id_t spi_tx_dma_chan)
 #endif
 }
 
-static void spi_dma_rx_init(spi_id_t id, dma_id_t spi_rx_dma_chan)
+static void spi_dma_rx_init(spi_id_t id, dma_id_t spi_rx_dma_chan, dma_data_width_t spi_rx_dma_width)
 {
 	dma_config_t dma_config = {0};
 	spi_int_config_t int_cfg_table[] = SPI_RX_INT_CONFIG_TABLE;
@@ -406,7 +434,7 @@ static void spi_dma_rx_init(spi_id_t id, dma_id_t spi_rx_dma_chan)
 	dma_config.mode = DMA_WORK_MODE_SINGLE;
 	dma_config.chan_prio = 0;
 	dma_config.src.dev = int_cfg_table[id].dma_dev;
-	dma_config.src.width = DMA_DATA_WIDTH_8BITS;
+	dma_config.src.width = spi_rx_dma_width;
 	dma_config.src.start_addr = SPI_R_DATA(id);
 	dma_config.dst.dev = DMA_DEV_DTCM;
 	dma_config.dst.width = DMA_DATA_WIDTH_32BITS;
@@ -537,8 +565,8 @@ bk_err_t bk_spi_init(spi_id_t id, const spi_config_t *config)
 #if (!CONFIG_SYSTEM_CTRL)
 		gpio_spi_sel(GPIO_SPI_MAP_MODE0);
 #endif
-		spi_dma_tx_init(id, config->spi_tx_dma_chan);
-		spi_dma_rx_init(id, config->spi_rx_dma_chan);
+		spi_dma_tx_init(id, config->spi_tx_dma_chan, config->spi_tx_dma_width);
+		spi_dma_rx_init(id, config->spi_rx_dma_chan, config->spi_rx_dma_width);
 	}
 #endif
 
@@ -795,6 +823,7 @@ bk_err_t bk_spi_clr_tx(spi_id_t id)
 {
     spi_hal_disable_tx_fifo_int(&s_spi[id].hal);
     spi_hal_disable_tx(&s_spi[id].hal);
+
     return BK_OK;
 }
 
@@ -803,9 +832,7 @@ bk_err_t bk_spi_clr_rx(spi_id_t id)
     spi_hal_disable_rx(&s_spi[id].hal);
     spi_hal_disable_tx_fifo_int(&s_spi[id].hal);
     spi_hal_disable_rx_fifo_int(&s_spi[id].hal);
-    s_spi[id].rx_size = 0;
-    s_spi[id].rx_offset = 0;
-    s_spi[id].rx_buf = NULL;
+
     return BK_OK;
 }
 
@@ -869,14 +896,13 @@ bk_err_t bk_spi_read_bytes_async(spi_id_t id, void *data, uint32_t size)
 	return BK_OK;
 }
 
-
 #if CONFIG_SPI_DMA
-
 static bk_err_t spi_duplex_tx_rx_enable(spi_id_t id)
 {
 	bk_dma_start(s_spi[id].spi_tx_dma_chan);
 	bk_dma_start(s_spi[id].spi_rx_dma_chan);
-	spi_hal_enable_tx_rx(&s_spi[id].hal);
+	spi_hal_enable_tx(&s_spi[id].hal);
+	spi_hal_enable_rx(&s_spi[id].hal);
 	return BK_OK;
 }
 
@@ -928,16 +954,21 @@ bk_err_t bk_spi_dma_duplex_xfer(spi_id_t id, const void *tx_data, uint32_t tx_si
 			bk_dma_set_src_start_addr(s_spi[id].spi_tx_dma_chan,((uint32_t)tx_data + offset));
 			bk_dma_set_transfer_len(s_spi[id].spi_tx_dma_chan,tx_size);
 		}
-
+		uint32_t int_level = spi_enter_critical();
 		spi_duplex_tx_rx_enable(id);
+		spi_exit_critical(int_level);
+
 		rtos_get_semaphore(&s_spi[id].tx_sema, BEKEN_NEVER_TIMEOUT);
 		rtos_get_semaphore(&s_spi[id].rx_sema, BEKEN_NEVER_TIMEOUT);
 
-		uint32_t int_level = spi_enter_critical();
+		int_level = spi_enter_critical();
 		spi_hal_disable_rx(&s_spi[id].hal);
 		spi_hal_disable_tx(&s_spi[id].hal);
 		spi_hal_disable_tx_fifo_int(&s_spi[id].hal);
 		spi_hal_disable_rx_fifo_int(&s_spi[id].hal);
+		extern uint32_t dma_wait_to_idle(dma_id_t id);
+		dma_wait_to_idle(s_spi[id].spi_tx_dma_chan);
+		dma_wait_to_idle(s_spi[id].spi_rx_dma_chan);
 		spi_exit_critical(int_level);
 
 		len = rx_size > 0 ? (len-rx_size) : (len-tx_size);
@@ -953,39 +984,119 @@ bk_err_t bk_spi_dma_write_bytes(spi_id_t id, const void *data, uint32_t size)
 	SPI_RETURN_ON_INVALID_ID(id);
 	SPI_RETURN_ON_ID_NOT_INIT(id);
 
-	uint32_t int_level = spi_enter_critical();
-	s_spi[id].is_tx_blocked = true;
-	s_current_spi_dma_wr_id = id;
-	spi_hal_clear_tx_fifo(&s_spi[id].hal);
-	//set spi trans_len as 0, to increase max trans_len from 4096(spi max length) to 65536(dma max length).
-	spi_hal_set_tx_trans_len(&s_spi[id].hal, 0);
+	int32_t left_len = size;
+	uint32_t tx_len = 0;
+	uint32_t buf_offset = 0;
+	while(left_len > 0) {
+		tx_len = (left_len < SPI_MAX_LENGTH)? left_len : SPI_MAX_LENGTH;
+		SPI_LOGD("tx_len = 0x%x, left_len=0x%x\r\n", tx_len, left_len);
 
-	spi_hal_enable_tx(&s_spi[id].hal);
-	spi_exit_critical(int_level);
-	bk_dma_write(s_spi[id].spi_tx_dma_chan, (uint8_t *)data, size);
+		uint32_t int_level = spi_enter_critical();
+		s_spi[id].is_tx_blocked = true;
+		s_current_spi_dma_wr_id = id;
+		spi_hal_clear_tx_fifo(&s_spi[id].hal);
+		//set spi trans_len as 0, to increase max trans_len from 4096(spi max length) to 65536(dma max length).
+		spi_hal_set_tx_trans_len(&s_spi[id].hal, 0);
+		spi_hal_enable_tx(&s_spi[id].hal);
+		spi_exit_critical(int_level);
+		bk_dma_write(s_spi[id].spi_tx_dma_chan, (uint8_t *)data + buf_offset, tx_len);
+		rtos_get_semaphore(&s_spi[id].tx_sema, BEKEN_NEVER_TIMEOUT);
 
-	rtos_get_semaphore(&s_spi[id].tx_sema, BEKEN_NEVER_TIMEOUT);
+		/* Attention: at the low spi master baudrate, maybe tx data is incomplete, for 1M/500K/100K
+		 *            and the following timeout will be occur, for dma just transfers data to spi fifo;
+		 *            what is more, the sending is relatively slow. if increasing the timeout duration,
+		 *            tx data is still incomplete using the lower baudrate. the reason is the second fifo
+		 *            has 4 or so byte data, when rx finish interrupt is generated.
+		 */
 
-	int_level = spi_enter_critical();
-	//wait spi last fifo data transfer finish
-	spi_hal_enable_tx_fifo_int(&s_spi[id].hal);
-	for (int i = 0; i <= 500; i++) {
-		delay_us(1);
-		SPI_LOGD("index = %d, id=%d, tx_fifo_int_status = %d\n", i, id, spi_hal_is_tx_fifo_int_triggered(&s_spi[id].hal));
-		if(spi_hal_is_tx_fifo_int_triggered(&s_spi[id].hal)) {
+		int_level = spi_enter_critical();
+		//wait spi last fifo data transfer finish
+		spi_hal_enable_tx_fifo_int(&s_spi[id].hal);
+		for (int i = 0; i <= 500; i++) {
 			delay_us(1);
-			break;
+			SPI_LOGD("index = %d, id=%d, tx_fifo_int_status = %d\n", i, id, spi_hal_is_tx_fifo_int_triggered(&s_spi[id].hal));
+			if(spi_hal_is_tx_fifo_int_triggered(&s_spi[id].hal)) {
+				delay_us(1);
+				break;
+			}
+			if(i == 500)
+				SPI_LOGE("wait tx fifo empty timeout.\n");
 		}
-		if(i == 500)
-			SPI_LOGE("wait tx fifo empty timeout.\n");
+		spi_hal_disable_tx_fifo_int(&s_spi[id].hal);
+		spi_hal_clear_tx_fifo_int_status(&s_spi[id].hal);
+		spi_hal_disable_tx(&s_spi[id].hal);
+		bk_dma_stop(s_spi[id].spi_tx_dma_chan);
+		spi_exit_critical(int_level);
+		left_len -= tx_len;
+		buf_offset += tx_len;
 	}
-	spi_hal_disable_tx_fifo_int(&s_spi[id].hal);
-	spi_hal_clear_tx_fifo_int_status(&s_spi[id].hal);
-	spi_hal_disable_tx(&s_spi[id].hal);
-	bk_dma_stop(s_spi[id].spi_tx_dma_chan);
-	spi_exit_critical(int_level);
+
 	return BK_OK;
 }
+
+// Modified by TUYA Start
+bk_err_t bk_spi_dma_write_bytes_async(spi_id_t id, const void *data, uint32_t size)
+{
+	BK_RETURN_ON_NULL(data);
+	SPI_RETURN_ON_INVALID_ID(id);
+	SPI_RETURN_ON_ID_NOT_INIT(id);
+
+	if (size > SPI_MAX_LENGTH) {
+		SPI_LOGE("size is too large, size = 0x%x\r\n", size);
+		return BK_FAIL;
+	}
+	int32_t left_len = size;
+	uint32_t tx_len = 0;
+	uint32_t buf_offset = 0;
+	while(left_len > 0) {
+		tx_len = (left_len < SPI_MAX_LENGTH)? left_len : SPI_MAX_LENGTH;
+		SPI_LOGD("tx_len = 0x%x, left_len=0x%x\r\n", tx_len, left_len);
+
+		uint32_t int_level = spi_enter_critical();
+		s_spi[id].is_tx_blocked = false;
+		s_current_spi_dma_wr_id = id;
+		spi_hal_clear_tx_fifo(&s_spi[id].hal);
+		//set spi trans_len as 0, to increase max trans_len from 4096(spi max length) to 65536(dma max length).
+		spi_hal_set_tx_trans_len(&s_spi[id].hal, 0);
+		spi_hal_enable_tx(&s_spi[id].hal);
+		spi_exit_critical(int_level);
+		bk_dma_write(s_spi[id].spi_tx_dma_chan, (uint8_t *)data + buf_offset, tx_len);
+#if 0
+		rtos_get_semaphore(&s_spi[id].tx_sema, BEKEN_NEVER_TIMEOUT);
+
+		/* Attention: at the low spi master baudrate, maybe tx data is incomplete, for 1M/500K/100K
+		 *            and the following timeout will be occur, for dma just transfers data to spi fifo;
+		 *            what is more, the sending is relatively slow. if increasing the timeout duration,
+		 *            tx data is still incomplete using the lower baudrate. the reason is the second fifo
+		 *            has 4 or so byte data, when rx finish interrupt is generated.
+		 */
+
+		int_level = spi_enter_critical();
+		//wait spi last fifo data transfer finish
+		spi_hal_enable_tx_fifo_int(&s_spi[id].hal);
+		for (int i = 0; i <= 500; i++) {
+			delay_us(1);
+			SPI_LOGD("index = %d, id=%d, tx_fifo_int_status = %d\n", i, id, spi_hal_is_tx_fifo_int_triggered(&s_spi[id].hal));
+			if(spi_hal_is_tx_fifo_int_triggered(&s_spi[id].hal)) {
+				delay_us(1);
+				break;
+			}
+			if(i == 500)
+				SPI_LOGE("wait tx fifo empty timeout.\n");
+		}
+		spi_hal_disable_tx_fifo_int(&s_spi[id].hal);
+		spi_hal_clear_tx_fifo_int_status(&s_spi[id].hal);
+		spi_hal_disable_tx(&s_spi[id].hal);
+		bk_dma_stop(s_spi[id].spi_tx_dma_chan);
+		spi_exit_critical(int_level);
+#endif
+		left_len -= tx_len;
+		buf_offset += tx_len;
+	}
+
+	return BK_OK;
+}
+// Modified by TUYA End
 
 bk_err_t bk_spi_dma_read_bytes(spi_id_t id, void *data, uint32_t size)
 {
@@ -993,27 +1104,85 @@ bk_err_t bk_spi_dma_read_bytes(spi_id_t id, void *data, uint32_t size)
 	SPI_RETURN_ON_ID_NOT_INIT(id);
 	BK_RETURN_ON_NULL(data);
 
-	uint32_t int_level = spi_enter_critical();
-	s_current_spi_dma_rd_id = id;
-	s_spi[id].is_rx_blocked = true;
+	int32_t left_len = size;
+	uint32_t rx_len = 0;
+	uint32_t buf_offset = 0;
 
-	//set spi trans_len as 0, to increase max trans_len from 4096(spi max length) to 65536(dma max length).
-	spi_hal_set_rx_trans_len(&s_spi[id].hal, 0);
-	spi_hal_clear_rx_fifo(&s_spi[id].hal);
-	spi_hal_disable_rx_fifo_int(&s_spi[id].hal);
-	spi_hal_disable_rx_overflow_int(&s_spi[id].hal);
-	spi_hal_enable_rx(&s_spi[id].hal);
-	spi_exit_critical(int_level);
-	bk_dma_read(s_spi[id].spi_rx_dma_chan, (uint8_t *)data, size);
+	while(left_len > 0) {
+		rx_len = (left_len < SPI_MAX_LENGTH)? left_len : SPI_MAX_LENGTH;
+		uint32_t int_level = spi_enter_critical();
+		s_current_spi_dma_rd_id = id;
+		s_spi[id].is_rx_blocked = true;
 
-	rtos_get_semaphore(&s_spi[id].rx_sema, BEKEN_NEVER_TIMEOUT);
+		//set spi trans_len as 0, to increase max trans_len from 4096(spi max length) to 65536(dma max length).
+		spi_hal_set_rx_trans_len(&s_spi[id].hal, 0);
+		spi_hal_clear_rx_fifo(&s_spi[id].hal);
+		spi_hal_disable_rx_fifo_int(&s_spi[id].hal);
+		spi_hal_disable_rx_overflow_int(&s_spi[id].hal);
+		spi_hal_enable_rx(&s_spi[id].hal);
+		spi_exit_critical(int_level);
+		bk_dma_read(s_spi[id].spi_rx_dma_chan, (uint8_t *)data + buf_offset, rx_len);
 
-	int_level = spi_enter_critical();
-	spi_hal_disable_rx(&s_spi[id].hal);
-	bk_dma_stop(s_spi[id].spi_rx_dma_chan);
-	spi_exit_critical(int_level);
+		rtos_get_semaphore(&s_spi[id].rx_sema, BEKEN_NEVER_TIMEOUT);
+
+		int_level = spi_enter_critical();
+		spi_hal_disable_rx(&s_spi[id].hal);
+		bk_dma_stop(s_spi[id].spi_rx_dma_chan);
+		spi_exit_critical(int_level);
+
+		left_len -= rx_len;
+		buf_offset += rx_len;
+	}
+
 	return BK_OK;
 }
+
+// Modified by TUYA Start
+bk_err_t bk_spi_dma_read_bytes_async(spi_id_t id, void *data, uint32_t size)
+{
+	SPI_RETURN_ON_INVALID_ID(id);
+	SPI_RETURN_ON_ID_NOT_INIT(id);
+	BK_RETURN_ON_NULL(data);
+
+	if (size > SPI_MAX_LENGTH) {
+		SPI_LOGE("size is too large, size = 0x%x\r\n", size);
+		return BK_FAIL;
+	}
+
+	int32_t left_len = size;
+	uint32_t rx_len = 0;
+	uint32_t buf_offset = 0;
+
+	while(left_len > 0) {
+		rx_len = (left_len < SPI_MAX_LENGTH)? left_len : SPI_MAX_LENGTH;
+		uint32_t int_level = spi_enter_critical();
+		s_current_spi_dma_rd_id = id;
+		s_spi[id].is_rx_blocked = true;
+
+		//set spi trans_len as 0, to increase max trans_len from 4096(spi max length) to 65536(dma max length).
+		spi_hal_set_rx_trans_len(&s_spi[id].hal, 0);
+		spi_hal_clear_rx_fifo(&s_spi[id].hal);
+		spi_hal_disable_rx_fifo_int(&s_spi[id].hal);
+		spi_hal_disable_rx_overflow_int(&s_spi[id].hal);
+		spi_hal_enable_rx(&s_spi[id].hal);
+		spi_exit_critical(int_level);
+		bk_dma_read(s_spi[id].spi_rx_dma_chan, (uint8_t *)data + buf_offset, rx_len);
+
+#if 0
+		rtos_get_semaphore(&s_spi[id].rx_sema, BEKEN_NEVER_TIMEOUT);
+
+		int_level = spi_enter_critical();
+		spi_hal_disable_rx(&s_spi[id].hal);
+		bk_dma_stop(s_spi[id].spi_rx_dma_chan);
+		spi_exit_critical(int_level);
+#endif
+		left_len -= rx_len;
+		buf_offset += rx_len;
+	}
+
+	return BK_OK;
+}
+// Modified by TUYA End
 
 bk_err_t bk_spi_dma_transmit(spi_id_t id, const void *tx_data, uint32_t tx_size, void *rx_data, uint32_t rx_size)
 {
@@ -1067,11 +1236,12 @@ static void spi_isr_common(spi_id_t id)
 			}
 			s_spi[id].rx_offset = rd_offset;
 		}
+
 		bk_spi_clr_rx(id);
 		if (s_spi_rx_finish_isr[id].callback){
 			s_spi_rx_finish_isr[id].callback(s_current_spi_dma_rd_id,s_spi_rx_finish_isr[id].param);
 		}
-		if (s_spi[id].is_rx_blocked) {
+		if (s_spi[id].is_rx_blocked && (0 != s_spi[id].rx_offset)) {
 			rtos_set_semaphore(&s_spi[id].rx_sema);
 			s_spi[id].is_rx_blocked = false;
 		}

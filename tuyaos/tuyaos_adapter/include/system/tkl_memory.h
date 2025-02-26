@@ -39,6 +39,28 @@ void *tkl_system_malloc(size_t size);
 void tkl_system_free(void* ptr);
 
 /**
+* @brief set memory
+*
+* @param[in] size: memory size
+*
+* @note This API is used to alloc memory of system.
+*
+* @return the memory address malloced
+*/
+void *tkl_system_memset(void* src, int ch, const size_t n);
+
+/**
+* @brief Alloc memory of system
+*
+* @param[in] size: memory size
+*
+* @note This API is used to alloc memory of system.
+*
+* @return the memory address malloced
+*/
+void *tkl_system_memcpy(void* src, const void* dst, const size_t n);
+
+/**
  * @brief Allocate and clear the memory
  * 
  * @param[in]       nitems      the numbers of memory block

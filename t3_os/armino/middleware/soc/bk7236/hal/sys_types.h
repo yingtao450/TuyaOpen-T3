@@ -99,7 +99,7 @@ extern "C" {
 
 #define RTC_TICKS_PER_1MS				((float)RTC_CLOCK_FREQ/1000)
 #define LOW_POWER_DPLL_STABILITY_DELAY_TIME              (0.19) // 0.19ms(hardware need at least 180us,because making the precise it use 190us,it will additional add 6us or 2us(external) )
-#define LOW_POWER_RESTORE_DELAY_TIME_HARDWARE            (0.65) //0.6ms,cpu 60M 0.51ms
+#define LOW_POWER_RESTORE_DELAY_TIME_HARDWARE            (0.45) //0.6ms,cpu 60M 0.51ms
 #define LOW_POWER_XTAL_DPLL_STABILITY_DELAY_TIME  ((LOW_POWER_DPLL_STABILITY_DELAY_TIME+LOW_POWER_RESTORE_DELAY_TIME_HARDWARE)*1000)
 
 #define LOW_POWER_26M_STABILITY_DELAY_TIME_HARDWARE      (1500)
@@ -364,6 +364,7 @@ typedef enum
 {
     POWER_SUB_MODULE_NAME_PHY_BT = POWER_MODULE_NAME_WIFI_PHY*PM_MODULE_SUB_POWER_DOMAIN_MAX ,       
 	POWER_SUB_MODULE_NAME_PHY_WIFI , 
+	POWER_SUB_MODULE_NAME_PHY_RF , 
 	POWER_SUB_MODULE_NAME_PHY_NONE
 }power_sub_module_name_phy_e;
 

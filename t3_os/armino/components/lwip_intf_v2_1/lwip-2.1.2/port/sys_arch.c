@@ -398,11 +398,7 @@ sys_thread_t sys_thread_new(const char *name, lwip_thread_fn thread , void *arg,
 	sys_thread_t CreatedTask;
 	bk_err_t result;
 
-#ifdef CONFIG_FREERTOS_SMP
-	result = rtos_create_thread_with_affinity(&CreatedTask, -1, prio, name, thread, stacksize * sizeof(uint32_t), arg);
-#else
 	result = rtos_create_thread(&CreatedTask, prio, name, thread, stacksize * sizeof(uint32_t), arg);
-#endif
 	if(result == kNoErr)
 	{
 	   return CreatedTask;

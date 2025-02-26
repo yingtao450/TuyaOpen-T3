@@ -73,6 +73,11 @@ static inline uint32_t spi_ll_get_byte_interval(spi_hw_t *hw)
 	return hw->ctrl.byte_interval;
 }
 
+static inline void spi_ll_set_rx_sample_edge(spi_hw_t *hw, uint32_t val)
+{
+	hw->ctrl.reserved = val;
+}
+
 //TODO init more
 static inline void spi_ll_init(spi_hw_t *hw)
 {

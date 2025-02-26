@@ -208,6 +208,7 @@ static void pwm_chan_init_common(pwm_chan_t sw_ch)
 {
 	pwm_id_t id;
 	pwm_ch_t hw_ch;
+	uint32_t soft_reset = 0;
 
 	pwm_sw_ch_to_hw_id_ch(sw_ch, &id, &hw_ch);
 	s_pwm[id].chan_init_bits |= BIT(hw_ch);
@@ -225,6 +226,10 @@ static void pwm_chan_init_common(pwm_chan_t sw_ch)
 	}
 
 	pwm_chan_init_gpio(sw_ch);
+	soft_reset = pwm_hal_get_cg_reset_soft_reset(&s_pwm[id].hal);
+	if (0 == soft_reset) {
+		pwm_hal_set_cg_reset_soft_reset(&s_pwm[id].hal, 1);
+	}
 }
 
 static void pwm_chan_deinit_common(pwm_chan_t sw_ch)
@@ -546,6 +551,7 @@ bk_err_t bk_pwm_init(pwm_chan_t sw_ch, const pwm_init_config_t *config)
 
 	pwm_sw_ch_to_hw_id_ch(sw_ch, &id, &hw_ch);
 	PWM_RETURN_ON_INVALID_CHAN(hw_ch);
+	PWM_PM_CHECK_RESTORE(id);
 
 	if (!pwm_driver_duty_is_valid(config->period_cycle, config->duty_cycle,
 		config->duty2_cycle, config->duty3_cycle))
@@ -730,6 +736,7 @@ bk_err_t bk_pwm_set_period_duty(pwm_chan_t sw_ch, pwm_period_duty_config_t *conf
 		config->duty2_cycle, config->duty3_cycle))
 		return BK_ERR_PWM_PERIOD_DUTY;
 
+	PWM_PM_CHECK_RESTORE(id);
 	pwm_hal_set_new_config_way(&s_pwm[id].hal, hw_ch, 1);
 
 	/* duty ratio is 0% */
@@ -1101,21 +1108,24 @@ static void pwm_group_init_with_any_channel(const pwm_group_init_config_t *confi
 {
 	pwm_id_t id1, id2;
 	pwm_ch_t hw_ch1, hw_ch2;
-	pwm_period_duty_config_t pwm_config;
+	pwm_period_duty_config_t pwm_config = {0};
 
 	pwm_sw_ch_to_hw_id_ch(config->chan1, &id1, &hw_ch1);
 	pwm_sw_ch_to_hw_id_ch(config->chan2, &id2, &hw_ch2);
 
+	pwm_config.psc = 0;
 	pwm_config.period_cycle = config->period_cycle;
 	pwm_config.duty_cycle = config->chan1_duty_cycle;
 	pwm_config.duty2_cycle = 0;
 	pwm_config.duty3_cycle = 0;
+	pwm_hal_set_new_config_way(&s_pwm[id1].hal, hw_ch1, 0);
 	pwm_set_channel_config(config->chan1, &pwm_config);
 	pwm_hal_set_flip_mode(&s_pwm[id1].hal, hw_ch1, 3);
 	pwm_hal_set_init_signal_high(&s_pwm[id1].hal, hw_ch1);
 
 	pwm_config.duty_cycle = config->chan1_duty_cycle + dead_cycle;
 	pwm_config.duty2_cycle = config->chan2_duty_cycle + pwm_config.duty_cycle;
+	pwm_hal_set_new_config_way(&s_pwm[id2].hal, hw_ch2, 0);
 	pwm_set_channel_config(config->chan2, &pwm_config);
 	pwm_hal_set_flip_mode(&s_pwm[id2].hal, hw_ch2, 1);
 	pwm_hal_set_init_signal_low(&s_pwm[id2].hal, hw_ch2);
@@ -1127,6 +1137,8 @@ bk_err_t bk_pwm_group_init(const pwm_group_init_config_t *config, pwm_group_t *g
 {
 	PWM_RETURN_ON_NOT_INIT();
 	BK_RETURN_ON_NULL(group);
+	PWM_PM_CHECK_RESTORE(PWM_ID_0);
+	PWM_PM_CHECK_RESTORE(PWM_ID_1);
 
 	uint32_t dead_cycle = 0;
 	int ret;
@@ -1139,13 +1151,17 @@ bk_err_t bk_pwm_group_init(const pwm_group_init_config_t *config, pwm_group_t *g
 		return ret;
 	}
 
-
 	dead_cycle = (config->period_cycle - config->chan1_duty_cycle - config->chan2_duty_cycle) >> 1;
+
 	pwm_chan_init_common(config->chan1);
 	pwm_chan_init_common(config->chan2);
 	if (pwm_chan_is_default_group(config->chan1, config->chan2)) {
 		PWM_LOGI("use hardware default group\r\n");
-		pwm_group_output_mode_config(config, 25, dead_cycle);
+		if (dead_cycle >= 0x400) {
+			PWM_LOGE("pwm_group_validate_dead_cycle, dead_cycle:%d\r\n", dead_cycle);
+			return BK_ERR_PWM_GROUP_DUTY;
+		}
+		pwm_group_output_mode_config(config, 0, dead_cycle);
 	} else {
 		PWM_LOGI("configure channels into group mode manually\r\n");
 		pwm_group_init_with_any_channel(config, dead_cycle);
@@ -1231,6 +1247,8 @@ bk_err_t bk_pwm_group_set_config(pwm_group_t group, const pwm_group_config_t *co
 	if (!pwm_group_is_existed(group)) {
 		return BK_ERR_PWM_GROUP_NOT_EXIST;
 	}
+	PWM_PM_CHECK_RESTORE(PWM_ID_0);
+	PWM_PM_CHECK_RESTORE(PWM_ID_1);
 
 	pwm_id_t id1, id2;
 	pwm_ch_t hw_ch1, hw_ch2;

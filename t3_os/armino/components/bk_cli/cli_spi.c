@@ -92,10 +92,20 @@ static void cli_spi_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		} else {
 			config.bit_order = SPI_MSB_FIRST;
 		}
+#if (CONFIG_SPI_BYTE_INTERVAL)
+		config.byte_interval = 1;
+#endif
 #if CONFIG_SPI_DMA
 		config.dma_mode = os_strtoul(argv[10], NULL, 10);
 		config.spi_tx_dma_chan = bk_dma_alloc(DMA_DEV_GSPI0);
 		config.spi_rx_dma_chan = bk_dma_alloc(DMA_DEV_GSPI0_RX);
+		if (os_strtoul(argv[4], NULL, 10) == 8) {
+			config.spi_tx_dma_width = DMA_DATA_WIDTH_8BITS;
+			config.spi_rx_dma_width = DMA_DATA_WIDTH_8BITS;
+		} else {
+			config.spi_tx_dma_width = DMA_DATA_WIDTH_16BITS;
+			config.spi_rx_dma_width = DMA_DATA_WIDTH_16BITS;
+		}
 #endif
 		BK_LOG_ON_ERR(bk_spi_init(spi_id, &config));
 		CLI_LOGI("spi init, spi_id=%d\n", spi_id);
@@ -389,6 +399,9 @@ static void spi_data_test_spi_config(spi_id_t id, spi_role_t role, uint32_t baud
 	config.wire_mode = SPI_4WIRE_MODE;
 	config.baud_rate = baud_rate;
 	config.bit_order = SPI_MSB_FIRST;
+#if (CONFIG_SPI_BYTE_INTERVAL)
+	config.byte_interval = 1;
+#endif
 
 #if CONFIG_SPI_DMA
 	config.dma_mode = 1;
@@ -396,6 +409,8 @@ static void spi_data_test_spi_config(spi_id_t id, spi_role_t role, uint32_t baud
 	config.spi_tx_dma_chan = s_spi_test.spi_tx_dma_chan;
 	s_spi_test.spi_rx_dma_chan = bk_dma_alloc(DMA_DEV_DTCM);
 	config.spi_rx_dma_chan = s_spi_test.spi_rx_dma_chan;
+	config.spi_tx_dma_width = DMA_DATA_WIDTH_8BITS;
+	config.spi_rx_dma_width = DMA_DATA_WIDTH_8BITS;
 #endif
 
 	if(role == SPI_ROLE_MASTER)
@@ -751,6 +766,7 @@ static void cli_spi_flash_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc
 	return;
 }
 
+// Modified by TUYA Start
 #if CONFIG_SPI_ETH
 static void cli_spi_eth_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
@@ -758,6 +774,7 @@ static void cli_spi_eth_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc, 
 	spi_eth_status_dump();
 }
 #endif /* CONFIG_SPI_ETH */
+// Modified by TUYA End
 
 #define SPI_CMD_CNT (sizeof(s_spi_commands) / sizeof(struct cli_command))
 static const struct cli_command s_spi_commands[] = {
@@ -767,9 +784,11 @@ static const struct cli_command s_spi_commands[] = {
 	{"spi_int", "spi_int {id} {reg} {tx|rx}", cli_spi_int_cmd},
 	{"spi_data_test", "spi_data_test {id} {master|slave} {baud_rate|send}[...]", cli_spi_data_txrx_test_cmd},
 	{"spi_flash", "spi_flash {id} {readid|read|write|erase} {addr} {len}[...]", cli_spi_flash_cmd},
-#if CONFIG_SPI_ETH	
+// Modified by TUYA Start
+#if CONFIG_SPI_ETH
 	{"spi_eth_dump", "spi_eth_dump {dump}", cli_spi_eth_cmd},
 #endif /* CONFIG_SPI_ETH */
+// Modified by TUYA End
 };
 
 int cli_spi_init(void)

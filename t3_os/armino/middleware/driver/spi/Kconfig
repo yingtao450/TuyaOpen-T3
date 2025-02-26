@@ -1,5 +1,9 @@
 menu "SPI"
 	#TODO optimize SPI_DMA and GENERAL_DMA when optimize driver
+	config SPI
+		bool "SPI ENABLE"
+		default y
+
 	config SPI_DMA
 		bool "Enable SPI DMA"
 		default y
@@ -23,8 +27,23 @@ menu "SPI"
 	config SPI_PM_CB_SUPPORT
 		bool "SPI PM Support"
 		default n
+
+	config SPI_BYTE_INTERVAL
+		bool "SPI byte interval"
+		default n
+
 	config SPI
 		bool "SPI ENABLE"
+		default n
+
+	config SPI_TEST
+		depends on SPI && DRIVER_TEST
+		bool "Enable spi test"
+		default y
+
+	config SPI_API_TEST
+		depends on SPI && DRIVER_TEST
+		bool "Enable spi_api test"
 		default n
 
 endmenu

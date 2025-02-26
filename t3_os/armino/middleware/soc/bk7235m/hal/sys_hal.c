@@ -8418,3 +8418,11 @@ void sys_hal_set_ana_vtempsel(uint32_t value)
     sys_ll_set_ana_reg9_vtempsel(value);
 }
 
+void sys_hal_set_ana_reg11_apfms(uint32_t value)
+{
+}
+
+void sys_hal_set_ana_reg12_dpfms(uint32_t value)
+{
+}
+

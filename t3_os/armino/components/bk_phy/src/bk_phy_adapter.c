@@ -306,7 +306,7 @@ void * crm_reg_api_wrapper(void)
 
 void * riu_reg_api_wrapper(void)
 {
-#if (CONFIG_SOC_BK7256XX && CONFIG_WIFI_ENABLE)
+#if (CONFIG_WIFI_ENABLE)
     return riu_reg_api();
 #else
     return NULL;
@@ -673,7 +673,7 @@ const phy_os_variable_t g_phy_os_variable = {
     ._OTP_MAC_ADDRESS        = OTP_MAC_ADDRESS ,
     ._OTP_VDDDIG_BANDGAP     = OTP_VDDDIG_BANDGAP ,
     ._OTP_DIA                = OTP_DIA ,
-    ._OTP_GADC_CALIBRATION   = OTP_GADC_CALIBRATION,
+    ._OTP_GADC_TEMPERATURE   = OTP_GADC_TEMPERATURE,
     ._OTP_SDMADC_CALIBRATION = OTP_SDMADC_CALIBRATION ,
 };
 

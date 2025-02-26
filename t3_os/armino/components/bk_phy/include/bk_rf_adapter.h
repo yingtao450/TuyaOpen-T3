@@ -17,6 +17,9 @@ typedef struct {
     void (*_sys_drv_module_power_ctrl)(unsigned int module, uint32_t power_state);
     uint32_t (*_sys_drv_module_power_state_get_ptr)(unsigned int module);
     void (*_phy_wakeup_reinit_ptr)(void);
+    void (*_sys_drv_set_ana_reg11_apfms)(uint32_t value);
+    void (*_sys_drv_set_ana_reg12_dpfms)(uint32_t value);
+    bk_err_t (*_bk_pm_module_vote_power_ctrl)(unsigned int module, uint32_t power_state);
 } rf_control_funcs_t;
 extern const rf_control_funcs_t g_rf_control_funcs;
 
@@ -24,6 +27,7 @@ typedef struct {
     uint32_t _pm_power_module_state_off;
     uint32_t _pm_power_module_state_on;
     uint32_t _pm_power_module_name_phy;
+    uint32_t _pm_power_module_name_rf;
 } rf_variable_t;
 extern const rf_variable_t g_rf_variable;
 

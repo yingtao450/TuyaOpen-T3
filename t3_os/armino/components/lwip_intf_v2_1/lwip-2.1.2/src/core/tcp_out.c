@@ -1391,11 +1391,13 @@ tcp_output(struct tcp_pcb *pcb)
     if (TCP_TCPLEN(seg) > 0) {
       seg->next = NULL;
       /* unacked list is empty? */
-#if CONFIG_SPI_ETH // Modified by TUYA Start
+// Modified by TUYA Start
+#if CONFIG_SPI_ETH
 	    if (useg == NULL) {
-#else	  
+#else
       if (pcb->unacked == NULL) {
-#endif // Modified by TUYA End
+#endif
+// Modified by TUYA End
         pcb->unacked = seg;
         useg = seg;
         /* unacked list is not empty? */
@@ -1626,6 +1628,11 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb, struct netif *netif
   #endif
 
   NETIF_SET_HINTS(netif, &(pcb->netif_hints));
+  // Modified by TUYA Start
+  #if CONFIG_TCP_TX_WIN_100MS
+  tcp_set_ps_flag(pcb);
+  #endif
+  // Modified by TUYA End
   err = ip_output_if(seg->p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl,
                      pcb->tos, IP_PROTO_TCP, netif);
   NETIF_RESET_HINTS(netif);
@@ -1932,7 +1939,7 @@ tcp_output_fill_options(const struct tcp_pcb *pcb, struct pbuf *p, u8_t optflags
     /* 1 word for SACKs header (including 2xNOP), and 2 words for each SACK */
     sacks_len = 1 + 1 * 2;
     opts += sacks_len;
-  } 
+  }
   // Modified by TUYA End
 #else
   LWIP_UNUSED_ARG(num_sacks);
@@ -1986,6 +1993,11 @@ tcp_output_control_segment(const struct tcp_pcb *pcb, struct pbuf *p,
       tos = 0;
     }
     TCP_STATS_INC(tcp.xmit);
+    // Modified by TUYA Start
+    #if CONFIG_TCP_TX_WIN_100MS
+    tcp_set_ps_flag((struct tcp_pcb *)pcb);
+    #endif
+    // Modified by TUYA End
     err = ip_output_if(p, src, dst, ttl, tos, IP_PROTO_TCP, netif);
     NETIF_RESET_HINTS(netif);
   }

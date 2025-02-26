@@ -102,8 +102,11 @@ extern "C" {
 	 uint32_t driver_capacity:		2;	//gpio_driver_capacity_t
  }gpio_default_map_t;
  */
-
-// #include "default_gpio_config.h"
+// Modified by TUYA Start
+#if CONFIG_GPIO_TUYA_SET_SUPPORT
+#include "default_gpio_config.h"
+#endif
+// Modified by TUYA End
 
 #if CONFIG_SPE
 #define GPIO_0_DEFAULT_MAP {GPIO_0,  GPIO_SECOND_FUNC_ENABLE, GPIO_DEV_I2C1_SCL, GPIO_IO_DISABLE, GPIO_PULL_UP_EN, GPIO_INT_DISABLE, GPIO_INT_TYPE_LOW_LEVEL, GPIO_LOW_POWER_DISCARD_IO_STATUS, GPIO_DRIVER_CAPACITY_3},
@@ -112,8 +115,9 @@ extern "C" {
 #define GPIO_0_DEFAULT_MAP
 #define GPIO_1_DEFAULT_MAP
 #endif
-
+// Modified by TUYA Start
 #ifndef USER_GPIO_DEFAULT_DEV_CONFIG
+// Modified by TUYA End
 #define GPIO_DEFAULT_DEV_CONFIG  \
 {\
 	GPIO_0_DEFAULT_MAP \
@@ -173,10 +177,11 @@ extern "C" {
 	{GPIO_54, GPIO_SECOND_FUNC_ENABLE, GPIO_DEV_LCD_B1, GPIO_IO_DISABLE, GPIO_PULL_DISABLE, GPIO_INT_DISABLE, GPIO_INT_TYPE_LOW_LEVEL, GPIO_LOW_POWER_DISCARD_IO_STATUS, GPIO_DRIVER_CAPACITY_1},\
 	{GPIO_55, GPIO_SECOND_FUNC_ENABLE, GPIO_DEV_LCD_B0, GPIO_IO_DISABLE, GPIO_PULL_DISABLE, GPIO_INT_DISABLE, GPIO_INT_TYPE_LOW_LEVEL, GPIO_LOW_POWER_DISCARD_IO_STATUS, GPIO_DRIVER_CAPACITY_1},\
 }
+// Modified by TUYA Start
 #else
 #define GPIO_DEFAULT_DEV_CONFIG USER_GPIO_DEFAULT_DEV_CONFIG
 #endif
-
+// Modified by TUYA End
 #endif
 
 /* uart gpio pin map */
@@ -475,15 +480,16 @@ struct {\
 #define LCD_BACKLIGHT_CTRL_ACTIVE_LEVEL    (1)
 
 #if CONFIG_GPIO_WAKEUP_SUPPORT
+// Modified by TUYA Start
 #define GPIO_STATIC_WAKEUP_SOURCE_MAP  \
 	{\
 		/*{GPIO_6, GPIO_INT_TYPE_LOW_LEVEL},*/ \
-		{GPIO_10, GPIO_INT_TYPE_FALLING_EDGE},\
+		/*{GPIO_10, GPIO_INT_TYPE_FALLING_EDGE},*/\
 		/*{GPIO_40, GPIO_INT_LEVEL_LOW},*/ \
 	}
 
 #endif
-
+// Modified by TUYA End
 #ifdef __cplusplus
 }
 #endif

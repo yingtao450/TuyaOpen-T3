@@ -425,7 +425,7 @@ uint32_t bk_dma_get_enable_status(dma_id_t id)
 }
 
 #define DMA_MAX_BUSY_TIME (10000)  //us
-static uint32_t dma_wait_to_idle(dma_id_t id)
+uint32_t dma_wait_to_idle(dma_id_t id)
 {
 	uint8_t dma_channel,dma_num;
 	dma_id_to_hw_id_ch(id,&dma_num,&dma_channel);
@@ -1184,7 +1184,7 @@ static void dma_isr_common(dma_unit_t dma_unit_id)
         if (dma_hal_is_finish_interrupt_triggered(hal, id)) {
 #if CONFIG_CACHE_ENABLE
             flush_all_dcache();
-#endif           
+#endif
             DMA_LOGD("dma_isr ALL FINISH TRIGGERED! id: %d\r\n", id);
             if (s_dma_finish_isr[dma_unit_id][id]) {
                 DMA_LOGD("dma_isr ALL_finish_isr! id: %d\r\n", id);

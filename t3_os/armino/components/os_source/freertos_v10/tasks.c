@@ -2407,6 +2407,27 @@ BaseType_t xTaskResumeAll( void )
                     {
                         do
                         {
+                            const TickType_t xConstTickCount = xTickCount;
+                            const TickType_t xConstTickNext = xConstTickCount + xPendedCounts;
+
+                            /* Correct the tick count value after a period during which the tick
+                            * was suppressed.  Note this does *not* call the tick hook function for
+                            * each stepped tick. */
+                            if ( xConstTickNext > xConstTickCount )
+                            {
+                                xTickCount = xConstTickNext - 1;
+                                xPendedCounts = 0;
+                            }
+                            else  /* xTickCount wrap around. */
+                            {
+                                if(xTickCount == portMAX_DELAY)
+                                    xPendedCounts--;
+                                else
+                                {
+                                    xTickCount = portMAX_DELAY - 1;
+                                    xPendedCounts = xConstTickNext + 1;
+                                }
+                            }
                             if( xTaskIncrementTick() != pdFALSE )
                             {
                                 xYieldPending = pdTRUE;
@@ -2415,8 +2436,6 @@ BaseType_t xTaskResumeAll( void )
                             {
                                 mtCOVERAGE_TEST_MARKER();
                             }
-
-                            --xPendedCounts;
                         } while( xPendedCounts > ( TickType_t ) 0U );
 
                         xPendedTicks = 0;

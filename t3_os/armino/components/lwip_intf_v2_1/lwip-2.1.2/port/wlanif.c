@@ -69,11 +69,11 @@
 #include <os/mem.h>
 
 #include <os/os.h>
-
+// Modified by TUYA Start
 /* Define those to better describe your network interface. */
 #define IFNAME0 's'
 #define IFNAME1 'a'
-
+// Modified by TUYA End
 #include "bk_uart.h"
 #include "bk_wifi.h"
 #include "bk_private/bk_wifi.h"
@@ -109,10 +109,12 @@ static void low_level_init(struct netif *netif)
 	int vif_index = wifi_netif_vif_to_vifid(vif);
 
 #if LWIP_NETIF_HOSTNAME
+// Modified by TUYA Start
     if(NULL == netif->hostname) {
         /* Initialize interface hostname */
         netif->hostname = (char*)&wlan_name[vif_index];
     }
+// Modified by TUYA End
 #endif /* LWIP_NETIF_HOSTNAME */
 
     /* set MAC hardware address length */
@@ -187,6 +189,11 @@ static inline int is_broadcast_mac_addr(const u8 *a)
 	return (a[0] & a[1] & a[2] & a[3] & a[4] & a[5]) == 0xff;
 }
 
+static inline int is_zero_ether_addr(const u8 *a)
+{
+	return !(a[0] | a[1] | a[2] | a[3] | a[4] | a[5]);
+}
+
 /**
  * This function should be called when a packet is ready to be read
  * from the interface. It uses the function low_level_input() that
@@ -229,7 +236,7 @@ ethernetif_input(int iface, struct pbuf *p)
 
 	/* need to forward*/
 	if (wifi_netif_vif_to_netif_type(vif) == NETIF_IF_AP) {
-		if (((!is_broadcast_mac_addr(ethhdr->dest.addr) &&
+		if (((!is_broadcast_mac_addr(ethhdr->dest.addr) && !is_zero_ether_addr(ethhdr->dest.addr) &&
 			(memcmp(netif->hwaddr,ethhdr->dest.addr,NETIF_MAX_HWADDR_LEN) != 0))) ||
 			(is_broadcast_mac_addr(ethhdr->dest.addr))) {
 				struct pbuf *q;

@@ -1,14 +1,27 @@
+/**
+ * @file tkl_bluetooth_sm.h
+ * @brief This is tkl_bluetooth_sm file
+ * @version 1.0
+ * @date 2024-08-15
+ *
+ * @copyright Copyright 2024-2024 Tuya Inc. All Rights Reserved.
+ *
+ */
+
 #ifndef __TKL_BLUETOOTH_SM_H__
 #define __TKL_BLUETOOTH_SM_H__
-
-#include "tkl_bluetooth_def.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*********************************************[Option][Bluetooth SecurityManager]********************************************/
+#include "tkl_bluetooth_def.h"
+#if defined(TUYA_BLE_HS_SM_SC) && (TUYA_BLE_HS_SM_SC == 1)
 
+/***********************************************************************
+ ********************* constant ( macro and enum ) *********************
+ **********************************************************************/
+// TUYA_BLE_SM_IO_CAPS
 #define TUYA_BLE_SM_IO_CAPS_DISPLAY_ONLY      0x00          /**< Display Only. */
 #define TUYA_BLE_SM_IO_CAPS_DISPLAY_YESNO     0x01          /**< Display and Yes/No entry. */
 #define TUYA_BLE_SM_IO_CAPS_KEYBOARD_ONLY     0x02          /**< Keyboard Only. */
@@ -163,6 +176,9 @@ OPERATE_RET tkl_ble_security_info_get(TUYA_BLE_SM_SOURCE_ID_T *source_id, TUYA_B
  *          ERROR
  * */ 
 OPERATE_RET tkl_ble_security_info_delete(TUYA_BLE_SM_SOURCE_ID_T *source_id);
+
+#endif /* TUYA_BLE_HS_SM_SC */
+
 
 #ifdef __cplusplus
 }

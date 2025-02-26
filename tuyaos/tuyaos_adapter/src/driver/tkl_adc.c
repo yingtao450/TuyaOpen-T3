@@ -20,15 +20,13 @@
 
 static uint16_t adc_buf[ADC_BUF_SIZE];
 
-
 static uint8_t g_adc_init[ADC_DEV_CHANNEL_SUM] = {FALSE};
 static uint32_t g_adc_ref_voltage[ADC_DEV_CHANNEL_SUM] = {0};
 static uint8_t g_adc_current_ch_num = 0;
-static uint8_t g_adc_read_size[ADC_DEV_NUM] = {1};
 static adc_config_t g_config[ADC_DEV_CHANNEL_SUM];
 static TUYA_ADC_NUM_E adc[ADC_DEV_NUM] = {TUYA_ADC_NUM_MAX}; 
 
-
+extern void bk_printf(const char *fmt, ...);
 
 /**
  * @brief tuya kernel platform_adc_init,must be called before adc function enable
@@ -101,7 +99,6 @@ adc_mode_t ty_to_bk_adc(TUYA_ADC_MODE_E adc_mode)
  */
 OPERATE_RET tkl_adc_init(TUYA_ADC_NUM_E unit_num, TUYA_ADC_BASE_CFG_T *cfg)
 {
-    
     uint8_t cnt = 0;
     static uint8_t is_init = 0;
 
@@ -134,10 +131,8 @@ OPERATE_RET tkl_adc_init(TUYA_ADC_NUM_E unit_num, TUYA_ADC_BASE_CFG_T *cfg)
             g_adc_init[cnt] = TRUE;
             cnt++;
         }
-   
     }
 
-    g_adc_read_size[unit_num] = cfg->conv_cnt;
     g_adc_ref_voltage[unit_num] = cfg->ref_vol;
     g_adc_current_ch_num = cfg->ch_nums;
 
@@ -210,21 +205,30 @@ uint32_t tkl_adc_ref_voltage_get(TUYA_ADC_NUM_E port_num)
 OPERATE_RET tkl_adc_read_data(TUYA_ADC_NUM_E unit_num, int32_t *buff, uint16_t len)
 {
     OPERATE_RET ret = OPRT_OK;
-    unsigned char i = 0, j = 0;
+    uint16_t buff_len = 0;
+    unsigned char i = 0;
     
     if (unit_num > ADC_DEV_NUM-1 && adc[unit_num] != unit_num) {
         bk_printf("error port num: %d:%d\r\n", unit_num, __LINE__);
         return OPRT_INVALID_PARM;
     }
-    if (unit_num * g_adc_read_size[unit_num] > len) {
+
+    for(int i = 0; i < g_adc_current_ch_num; i++) {
+        if(g_adc_init[i] == TRUE) {
+            buff_len += g_config[i].output_buf_len;
+        }
+    }
+
+    if (buff_len > len) {
         bk_printf("param len err:%d !!!\r\n",len);
         ret = OPRT_COM_ERROR;
     }
 
+    buff_len = 0;
     for (i = 0; i < g_adc_current_ch_num; i++) {
         if (g_adc_init[i]) {
-            ret = tkl_adc_read_single_channel(unit_num, g_config[i].chan, &buff[j*g_adc_read_size[unit_num]]);
-            j++;
+            ret = tkl_adc_read_single_channel(unit_num, g_config[i].chan, &buff[buff_len]);
+            buff_len += g_config[i].output_buf_len;
         }
     }
 
@@ -256,13 +260,13 @@ OPERATE_RET tkl_adc_read_single_channel(TUYA_ADC_NUM_E unit_num, uint8_t ch_id, 
         BK_LOG_ON_ERR(bk_adc_enable_bypass_clalibration());
         BK_LOG_ON_ERR(bk_adc_start());
         bk_adc_set_channel(g_config[curr_ch_index].chan);
-        bk_adc_read_raw(g_config[curr_ch_index].output_buf, g_adc_read_size[unit_num], time_out);
+        bk_adc_read_raw(g_config[curr_ch_index].output_buf, g_config[curr_ch_index].output_buf_len, time_out);
 
-        for (int i = 0; i < g_adc_read_size[unit_num]; i++) {
+        for (int i = 0; i < g_config[curr_ch_index].output_buf_len; i++) {
             data[i] = (int32_t)g_config[curr_ch_index].output_buf[i];
-            bk_printf("%d ", g_config[curr_ch_index].output_buf[i]);
+            //bk_printf("%d ", g_config[curr_ch_index].output_buf[i]);
         }
-        bk_printf("\r\n");
+        //bk_printf("\r\n");
         bk_adc_stop();
         bk_adc_deinit(g_config[curr_ch_index].chan);
     }
@@ -299,9 +303,21 @@ OPERATE_RET tkl_adc_read_voltage(TUYA_ADC_NUM_E port_num, int32_t *buff, uint16_
     uint16_t value   = 0;
     float cali_value = 0;
     uint8_t read_cnt = 0;
+    uint16_t buff_len = 0;
 
     if(adc[port_num] != port_num && port_num > ADC_DEV_NUM-1) {
         bk_printf("error port num: %d:%d\r\n", port_num, __LINE__);
+        return OPRT_INVALID_PARM;
+    }
+
+    for(int i = 0; i < g_adc_current_ch_num; i++) {
+        if(g_adc_init[i] == TRUE) {
+            buff_len += g_config[i].output_buf_len;
+        }
+    }
+
+    if(buff_len > len) {
+        bk_printf("param len err !!!\r\n");
         return OPRT_INVALID_PARM;
     }
 
@@ -326,18 +342,13 @@ OPERATE_RET tkl_adc_read_voltage(TUYA_ADC_NUM_E port_num, int32_t *buff, uint16_
             BK_LOG_ON_ERR(bk_adc_start());
             for(int j = 0; j < g_config[i].output_buf_len; j++) {
                 BK_LOG_ON_ERR(bk_adc_read(&value, 1000));
-                if(g_config[i].chan == 0)
-                {
+                if(g_config[i].chan == 0) {
                     //cali_value = ((float)value/4096*5)*1.2*1000;
                     cali_value = saradc_calculate(value);
                     cali_value = cali_value*5/2;
-                }
-                else if(g_config[i].chan == 7 || g_config[i].chan == 8 || g_config[i].chan == 9)
-                {
+                } else if(g_config[i].chan == 7 || g_config[i].chan == 8 || g_config[i].chan == 9) {
                     bk_printf("adc_chan %d has been used\r\n", g_config[i].chan);
-                }
-                else
-                {
+                } else {
                     //cali_value = ((float)value/4096*2)*1.2*1000;
                     cali_value = saradc_calculate(value);
                 }

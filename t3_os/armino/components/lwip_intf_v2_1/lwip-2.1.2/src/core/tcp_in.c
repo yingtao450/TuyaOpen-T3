@@ -1269,6 +1269,13 @@ tcp_receive(struct tcp_pcb *pcb)
       // smart RTO strategy
       pcb->rto = bk_recalc_tcp_rto_internal(pcb->rto, pcb->nrtx, pcb->sa, pcb->sv);
 #endif
+      // Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+      if(pcb->rto > 3) {
+        pcb->rto = 3;
+      }
+#endif
+      // Modified by TUYA End
 
       /* Record how much data this ACK acks */
       acked = (tcpwnd_size_t)(ackno - pcb->lastack);
@@ -1389,6 +1396,13 @@ tcp_receive(struct tcp_pcb *pcb)
       // smart RTO strategy
       pcb->rto = bk_recalc_tcp_rto_internal(pcb->rto, pcb->nrtx, pcb->sa, pcb->sv);
 #endif
+      // Modified by TUYA Start
+#if CONFIG_TUYA_DTIM10_LWIP
+      if(pcb->rto > 3) {
+        pcb->rto = 3;
+      }
+#endif
+      // Modified by TUYA End
       LWIP_DEBUGF(TCP_RTO_DEBUG, ("tcp_receive: RTO %"U16_F" (%"U16_F" milliseconds)\n",
                                   pcb->rto, (u16_t)(pcb->rto * TCP_SLOW_INTERVAL)));
 
@@ -1940,7 +1954,7 @@ tcp_receive(struct tcp_pcb *pcb)
       //#include "system.h"
       bk_printf("bk sack len = 0 seq(%d)\r\n",seqno);
       tcp_send_empty_ack(pcb);
-    } 
+    }
     #endif
 // Modified by TUYA End
   }

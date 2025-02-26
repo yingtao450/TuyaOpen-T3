@@ -83,7 +83,26 @@ menu "Lwip_intf_v2_1"
 			default n
 			help
 				open lwip debug log
-
+		config STATIC_IP_FOR_GATEWAY
+			bool "Enable static ip for gateway"
+			default n
+			help
+				use static ip for gateway
+		config TUYA_DTIM10_LWIP
+			bool "Enable tuya retry strategy"
+			default n
+			help
+				use tuya retry strategy
+		config WIFI_DTIM10_TEMP_DISABLED
+			bool "ARP response periodic"
+			default n
+			help
+				ARP response periodic
+		config TCP_TX_WIN_100MS
+			bool "Enable tcp tx window to 100ms"
+			default n
+			help
+				enable tcp tx window to 100ms
 		#TODO optimize it
 		choice LWIP_MEM
 			prompt "Select Lwip Mem Policy"

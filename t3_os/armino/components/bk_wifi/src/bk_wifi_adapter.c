@@ -364,6 +364,22 @@ int bk_get_pbuf_pool_size_wrapper()
 #endif
 }
 
+bool bk_pbuf_check_overflow_wrapper(void *_p, uint32_t buf)
+{
+	struct pbuf *p = _p;
+
+	// if pbuf payload directly follows pbuf, check overflow after
+	// 802.3 frame is coverted to 802.11 hdr.
+	if (p && (p->type_internal & PBUF_TYPE_FLAG_STRUCT_DATA_CONTIGUOUS)) {
+		if ((uint32_t)(p + 1) > buf) {
+			BK_LOGE(TAG, "pbuf overflow, check PBUF settings\n");
+			BK_ASSERT(0);
+			return true;
+		}
+	}
+	return false;
+}
+
 void *bk_get_netif_hostname_wrapper(void *netif)
 {
 	const char*  hostname = ((struct netif *)netif)->hostname;
@@ -627,6 +643,16 @@ static bk_err_t bk_pm_low_voltage_register_wrapper(void *config_cb)
 static void wifi_vote_rf_ctrl_wrapper(uint8_t cmd)
 {
     rf_module_vote_ctrl(cmd,RF_BY_WIFI_BIT);
+}
+
+static void wifi_phy_clk_open_wrapper(void)
+{
+    phy_clk_open_handler(RF_BY_WIFI_BIT);
+}
+
+static void wifi_phy_clk_close_wrapper(void)
+{
+    phy_clk_close_handler(RF_BY_WIFI_BIT);
 }
 
 static void wifi_mac_phy_power_on_wrapper(void)
@@ -1518,6 +1544,7 @@ __attribute__((section(".dtcm_sec_data "))) wifi_os_funcs_t g_wifi_os_funcs = {
 	._pbuf_cat = bk_pbuf_cat_wrapper,
 	._get_rx_pbuf_type = bk_get_rx_pbuf_type_wrapper,
 	._get_pbuf_pool_size = bk_get_pbuf_pool_size_wrapper,
+	._pbuf_check_overflow = bk_pbuf_check_overflow_wrapper,
 	._get_netif_hostname = bk_get_netif_hostname_wrapper,
 	._save_net_info = bk_save_net_info_wrapper,
 	._get_net_info = bk_get_net_info_wrapper,
@@ -1562,6 +1589,8 @@ __attribute__((section(".dtcm_sec_data "))) wifi_os_funcs_t g_wifi_os_funcs = {
 	._bk_pm_sleep_register = bk_pm_sleep_register_wrapper,
 	._bk_pm_low_voltage_register = bk_pm_low_voltage_register_wrapper,
 	._wifi_vote_rf_ctrl = wifi_vote_rf_ctrl_wrapper,
+	._wifi_phy_clk_open = wifi_phy_clk_open_wrapper,
+	._wifi_phy_clk_close = wifi_phy_clk_close_wrapper,
 	._wifi_mac_phy_power_on = wifi_mac_phy_power_on_wrapper,
 	._mac_ps_exc32_cb_notify = mac_ps_exc32_cb_notify_wrapper,
 	._mac_ps_exc32_init = mac_ps_exc32_init_wrapper,

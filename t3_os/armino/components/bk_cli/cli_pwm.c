@@ -127,7 +127,7 @@ static void cli_pwm_group_cmd(char *pcWriteBuffer, int xWriteBufferLen, int argc
 {
 	uint32_t group;
 
-	if (argc < 2) {
+	if (argc < 3) {
 		cli_pwm_help();
 		return;
 	}

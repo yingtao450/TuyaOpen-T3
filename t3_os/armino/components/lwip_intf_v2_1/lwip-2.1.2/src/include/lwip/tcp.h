@@ -277,6 +277,11 @@ struct tcp_pcb {
   /* Timers */
   u8_t polltmr, pollinterval;
   u8_t last_timer;
+  // Modified by TUYA Start
+  #if CONFIG_TCP_TX_WIN_100MS
+  u8_t ps_idx;
+  #endif
+  // Modified by TUYA End
   u32_t tmr;
 
   /* receiver variables */

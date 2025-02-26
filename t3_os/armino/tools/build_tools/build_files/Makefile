@@ -56,7 +56,7 @@ endif
 
 ifeq ("$(ARMINO_SOC)", "")
 ifeq ("$(ARMINO_SOC_LIB)", "")
-	ARMINO_SOC := bk7256
+	ARMINO_SOC := bk7236
 	ARMINO_TARGET := $(MAKECMDGOALS)
 endif
 else
@@ -117,7 +117,11 @@ endif
 ifeq ($(has_lib_src), 1)
 ifneq ("$(APP_VERSION)", "verify")
 $(properties_lib_targets): common
+ifneq ("$(ARMINO_TARGET)", "doc")
 	@$(ARMINO_TOOL_WRAPPER) $(ARMINO_DIR) $(PROJECT_DIR) $(PROJECT_BUILD_DIR) $@
+else
+	@echo "skip make doc"
+endif
 endif
 endif
 
@@ -148,7 +152,11 @@ $(rel_targets):
 relall: $(rel_targets)
 
 $(cmake_supported_targets): common
+ifneq ("$(ARMINO_TARGET)", "doc")
 	@$(ARMINO_TOOL) -B ./$(PROJECT_BUILD_DIR) -P ./$(PROJECT_DIR) $@
+else
+	@echo "skip make doc"
+endif
 
 $(clean_targets):
 	@$(ARMINO_TOOL_WRAPPER) $(ARMINO_DIR) $(PROJECT_DIR) $(PROJECT_NAME) $@

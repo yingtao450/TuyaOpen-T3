@@ -14,7 +14,9 @@
 
 #include <lwip/sockets.h>
 #include "wlanif.h"
+// Modified by TUYA Start
 #if CONFIG_ETH || CONFIG_SPI_ETH
+// Modified by TUYA End
 #include "ethernetif.h"
 #endif
 
@@ -106,10 +108,11 @@ static struct iface g_uap = {{0}, .name = "ap"};
 #ifdef CONFIG_ETH
 static struct iface g_eth = {{0}, .name = "eth"};
 #endif
+// Modified by TUYA Start
 #ifdef CONFIG_SPI_ETH
 static struct iface g_spi_eth = {{0}, .name = "spi_eth"};
 #endif
-
+// Modified by TUYA End
 net_sta_ipup_cb_fn sta_ipup_cb = NULL;
 
 extern void *net_get_sta_handle(void);
@@ -455,14 +458,16 @@ void sta_ip_down(void)
 			g_mlan.netif.ip6_addr_state[addr_idx] = IP6_ADDR_INVALID;
 		}
 #endif
+// Modified by TUYA Start
 #if CONFIG_SPI_ETH
 	struct netif * spi_netif = net_get_spi_eth_handle();
-	if (   spi_netif && (spi_netif->flags & NETIF_FLAG_UP) 
-        && spi_netif->ip_addr.addr && spi_netif->gw.addr 
-        && spi_netif->netmask.addr) {
-        netifapi_netif_set_default(spi_netif);
+	if (   spi_netif && (spi_netif->flags & NETIF_FLAG_UP)
+			&& spi_netif->ip_addr.addr && spi_netif->gw.addr
+			&& spi_netif->netmask.addr) {
+		netifapi_netif_set_default(spi_netif);
     }
 #endif /* CONFIG_SPI_ETH */
+// Modified by TUYA End
 	}
 }
 
@@ -774,6 +779,8 @@ int net_get_if_addr(struct wlan_ip_config *addr, void *intrfc_handle)
 			addr->ipv4.netmask = ip_addr_get_ip4_u32(&if_handle->netif.netmask);
 			addr->ipv4.gw = ip_addr_get_ip4_u32(&if_handle->netif.gw);
 		}
+	} else {
+		memset(addr, 0, sizeof(*addr));
 	}
 
 	return 0;
@@ -1118,7 +1125,7 @@ void eth_ip_down(void)
 	}
 }
 #endif
-
+// Modified by TUYA Start
 #ifdef CONFIG_SPI_ETH
 void *net_get_spi_eth_handle(void)
 {
@@ -1154,3 +1161,4 @@ int net_spi_eth_init(void)
 	return 0;
 }
 #endif /* CONFIG_SPI_ETH */
+// Modified by TUYA End

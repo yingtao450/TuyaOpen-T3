@@ -6,6 +6,28 @@
 #define SPI_DMA_MAX_LEN 65535
 static spi_config_t spi_config = {0};
 
+struct spi_irq_config {
+    uint8_t irq_enable;
+    TUYA_SPI_IRQ_CB cb;
+};
+static struct spi_irq_config spi_irq[TUYA_SPI_NUM_MAX] = {0};
+
+// rx isr callback
+static void spi_tx_callback_dispatch(spi_id_t id, void *param)
+{
+    if (spi_irq[id].cb) {
+        spi_irq[id].cb((TUYA_SPI_NUM_E)id, TUYA_SPI_EVENT_RX_COMPLETE);
+    }
+}
+
+// tx isr callback
+static void spi_rx_callback_dispatch(spi_id_t id, void *param)
+{
+    if (spi_irq[id].cb) {
+        spi_irq[id].cb((TUYA_SPI_NUM_E)id, TUYA_SPI_EVENT_TX_COMPLETE);
+    }    
+}
+
 OPERATE_RET tkl_spi_init(TUYA_SPI_NUM_E port, const TUYA_SPI_BASE_CFG_T *cfg)
 {
     if (port > TUYA_SPI_NUM_0) {
@@ -89,6 +111,8 @@ OPERATE_RET tkl_spi_deinit(TUYA_SPI_NUM_E port)
 
 OPERATE_RET tkl_spi_send(TUYA_SPI_NUM_E port, void *data, uint16_t size)
 {
+    bk_err_t ret = BK_OK;
+
     if (data == NULL || port > TUYA_SPI_NUM_0) {
         return OPRT_INVALID_PARM;
     }
@@ -98,26 +122,35 @@ OPERATE_RET tkl_spi_send(TUYA_SPI_NUM_E port, void *data, uint16_t size)
         if (size >= SPI_DMA_MAX_LEN) {
             return OPRT_INVALID_PARM;
         }
-
-        if (bk_spi_dma_write_bytes((spi_id_t)port, data, size) != BK_OK)
+        
+        if (spi_irq[port].irq_enable) {
+            ret = bk_spi_dma_write_bytes_async((spi_id_t)port, data, size);
+        } else {
+            ret = bk_spi_dma_write_bytes((spi_id_t)port, data, size);
+        }
+        
+        if (ret != BK_OK)
             return OPRT_COM_ERROR;
-    } else {
+    } else
 #endif
-        if (size >= 4096) {
-            return OPRT_INVALID_PARM;
+    {
+        if (spi_irq[port].irq_enable) {
+            ret = bk_spi_write_bytes_async((spi_id_t)port, data, size);
+        } else {
+            ret = bk_spi_write_bytes((spi_id_t)port, data, size);
         }
 
-        if (bk_spi_write_bytes((spi_id_t)port, data, size) != BK_OK)
+        if (ret != BK_OK)
             return OPRT_COM_ERROR;
-#if (CONFIG_SPI_DMA)
-    }        
-#endif
+    }
 
     return OPRT_OK;
 }
 
 OPERATE_RET tkl_spi_recv(TUYA_SPI_NUM_E port, void *data, uint16_t size)
 {
+    bk_err_t ret = BK_OK;
+
     if (data == NULL || port > TUYA_SPI_NUM_0) {
         return OPRT_INVALID_PARM;
     }
@@ -128,19 +161,27 @@ OPERATE_RET tkl_spi_recv(TUYA_SPI_NUM_E port, void *data, uint16_t size)
             return OPRT_INVALID_PARM;
         }
 
-        if (bk_spi_dma_read_bytes((spi_id_t)port, data, size) != BK_OK)
-            return OPRT_COM_ERROR;
-    } else {    
-#endif
-        if (size >= 4096) {
-            return OPRT_INVALID_PARM;
+        if (spi_irq[port].irq_enable) {
+            ret = bk_spi_dma_read_bytes_async((spi_id_t)port, data, size);
+        } else {
+            ret = bk_spi_dma_read_bytes((spi_id_t)port, data, size);
         }
 
-        if (bk_spi_read_bytes((spi_id_t)port, data, size) != BK_OK)
+        if (ret != BK_OK)
             return OPRT_COM_ERROR;
-#if (CONFIG_SPI_DMA)
-    }        
+    } else
 #endif
+     {    
+        if (spi_irq[port].irq_enable) {
+            ret = bk_spi_read_bytes_async((spi_id_t)port, data, size);
+        } else {
+            ret = bk_spi_read_bytes((spi_id_t)port, data, size);
+        }
+
+        if (ret != BK_OK)
+            return OPRT_COM_ERROR;
+    }        
+
     return OPRT_OK;
 }
 
@@ -181,5 +222,61 @@ OPERATE_RET tkl_spi_abort_transfer(TUYA_SPI_NUM_E port)
 
     if (bk_spi_deinit((spi_id_t)port) != BK_OK)
         return OPRT_COM_ERROR;
+    return OPRT_OK;
+}
+
+/**
+ * @brief spi irq init
+ * NOTE: call this API will not enable interrupt
+ * 
+ * @param[in] port: spi port, id index starts at 0
+ * @param[in] cb:  spi irq cb
+ *
+ * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
+ */
+OPERATE_RET tkl_spi_irq_init(TUYA_SPI_NUM_E port, TUYA_SPI_IRQ_CB cb)
+{
+    if (port > TUYA_SPI_NUM_0) {
+        return OPRT_INVALID_PARM;
+    }
+
+    spi_irq[port].cb = cb;
+    spi_irq[port].irq_enable = 0;
+
+    return OPRT_OK;
+}
+
+/**
+ * @brief spi irq enable
+ * 
+ * @param[in] port: spi port id, id index starts at 0
+ *
+ * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
+ */
+OPERATE_RET tkl_spi_irq_enable(TUYA_SPI_NUM_E port)
+{
+
+    bk_spi_register_tx_finish_isr((spi_id_t)port, spi_tx_callback_dispatch, NULL);
+    bk_spi_register_rx_finish_isr((spi_id_t)port, spi_rx_callback_dispatch, NULL);
+
+    spi_irq[port].irq_enable = 1;
+
+    return OPRT_OK;
+}
+
+/**
+ * @brief spi irq disable
+ * 
+ * @param[in] port: spi port id, id index starts at 0
+ *
+ * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
+ */
+OPERATE_RET tkl_spi_irq_disable(TUYA_SPI_NUM_E port)
+{
+    bk_spi_register_tx_finish_isr((spi_id_t)port, NULL, NULL);
+    bk_spi_register_rx_finish_isr((spi_id_t)port, NULL, NULL);
+    
+    spi_irq[port].irq_enable = 0;
+
     return OPRT_OK;
 }

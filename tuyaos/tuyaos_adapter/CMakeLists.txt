@@ -16,6 +16,7 @@ endmacro()
 
 #add tuya include dir
 set(include_dirs
+    "include"
     "include/adc"
     "include/bluetooth"
     "include/flash"
@@ -26,15 +27,17 @@ set(include_dirs
     "include/pinmux"
     "include/pwm"
     "include/rtc"
+    "include/security"
     "include/i2c"
     "include/spi"
     "include/system"
     "include/timer"
     "include/uart"
-    "include/watchdog"
-    "include/wifi"
     "include/utilities/include"
     "include/wakeup"
+    "include/watchdog"
+    "include/wifi"
+    "include/wired"
     )
 
 string(REPLACE " " ";" TUYA_HEADER_DIR_LIST $ENV{TUYA_HEADER_DIR})
@@ -44,11 +47,12 @@ foreach(head ${TUYA_HEADER_DIR_LIST})
 endforeach()
 
 list(APPEND srcs
-    	"src/DsoHack.cc"
+    "src/DsoHack.cc"
 	"src/driver/tkl_adc.c"
 	"src/driver/tkl_flash.c"
 	"src/driver/tkl_gpio.c"
 	"src/driver/tkl_hci.c"
+	"src/driver/tkl_lwip.c"
 	"src/driver/tkl_pwm.c"
 	"src/driver/tkl_rtc.c"
 	"src/driver/tkl_spi.c"
@@ -57,6 +61,7 @@ list(APPEND srcs
 	"src/driver/tkl_uart.c"
 	"src/driver/tkl_watchdog.c"
 	"src/driver/tkl_wifi.c"
+	"src/driver/tkl_wired.c"
 	"src/system/tkl_memory.c"
 	"src/system/tkl_mutex.c"
 	"src/system/tkl_network.c"
@@ -68,7 +73,10 @@ list(APPEND srcs
 	"src/system/tkl_system.c"
 	"src/system/tkl_thread.c"
 	"src/driver/tkl_pinmux.c"
+	"src/driver/encrypt.c"
 	"src/driver/tkl_wakeup.c"
+	"src/cli_tuya_test.c"
+    "src/bk_adapter.c"
 )
 
 file(GLOB_RECURSE utilities_srcs "$ENV{ARMINO_PATH}/../../tuyaos/tuyaos_adapter/include/utilities/src/*.c")

@@ -70,14 +70,14 @@ if (CONFIG_ETH)
 	lwip-2.1.2/port/ethernetif.c
 	)
 endif()
-
+# Modified by TUYA Start
 # SPI Ethernet
 if (CONFIG_SPI_ETH)
 	list(APPEND srcs
 	lwip-2.1.2/port/lwip_hooks.c
 	)
 endif()
-
+# Modified by TUYA End
 else()
 
 if (CONFIG_SYS_CPU1)

@@ -477,6 +477,14 @@ OPERATE_RET tkl_wifi_register_recv_mgnt_callback(const BOOL_T enable, const WIFI
  */
 OPERATE_RET tkl_wifi_ioctl(WF_IOCTL_CMD_E cmd,  void *args);
 
+/**
+ * @brief get all current connected sta info
+ *
+ * @param[out]      sta_ary the sta info array
+ * @param[out]      num     the num of sta_ary
+ * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
+ */
+OPERATE_RET tkl_wifi_get_all_sta_info(WF_STA_INFO_S **sta_ary, uint32_t *num);
 
 #ifdef __cplusplus
 }

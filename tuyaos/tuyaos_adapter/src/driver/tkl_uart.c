@@ -5,6 +5,7 @@
 #include <driver/uart.h>
 #include "uart_statis.h"
 #include "bk_uart.h"
+#include "uart_hal.h"
 #include <components/log.h>
 
 #define CLI_GETCHAR_TIMEOUT           (120000)
@@ -123,6 +124,15 @@ OPERATE_RET tkl_uart_deinit(TUYA_UART_NUM_E port_id)
         return OPRT_INVALID_PARM;
     }
     bk_uart_deinit(port);
+
+    TUYA_GPIO_BASE_CFG_T gpio_cfg;
+    gpio_cfg.direct = TUYA_GPIO_INPUT;
+    gpio_cfg.level = TUYA_GPIO_LEVEL_HIGH;
+    gpio_cfg.mode = TUYA_GPIO_PULLDOWN;
+    tkl_gpio_init(uart_hal_get_tx_pin(port), &gpio_cfg);
+    gpio_cfg.mode = TUYA_GPIO_FLOATING;
+    tkl_gpio_init(uart_hal_get_rx_pin(port), &gpio_cfg);
+
     return OPRT_OK;
 }
 
@@ -285,42 +295,4 @@ void tkl_uart_rx_irq_cb_reg(TUYA_UART_NUM_E port_id, TUYA_UART_IRQ_CB rx_cb)
 void tkl_uart_tx_irq_cb_reg(TUYA_UART_NUM_E port_id, TUYA_UART_IRQ_CB tx_cb)
 {
 
-}
-
-/**
- * @brief wait for uart data
- * 
- * @param[in] port_id: uart port id, id index starts at 0
- *                     in linux platform, 
- *                         high 16 bits aslo means uart type, 
- *                                   it's value must be one of the TUYA_UART_TYPE_E type
- *                         the low 16bit - means uart port id
- *                         you can input like this TUYA_UART_PORT_ID(TUYA_UART_SYS, 2)
- * @param[in] timeout_ms: the max wait time, unit is millisecond
- *                        -1 : block indefinitely
- *                        0  : non-block
- *                        >0 : timeout in milliseconds
- * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
- */
-OPERATE_RET tkl_uart_wait_for_data(TUYA_UART_NUM_E port_id, int timeout_ms)
-{
-    // --- BEGIN: user implements ---
-    return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
-}
-
-/**
- * @brief uart control
- *
- * @param[in] uart refer to tuya_uart_t
- * @param[in] cmd control command
- * @param[in] arg command argument
- *
- * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
- */
-OPERATE_RET tkl_uart_ioctl(TUYA_UART_NUM_E port_id, uint32_t cmd, void *arg)
-{
-    // --- BEGIN: user implements ---
-    return OPRT_NOT_SUPPORTED;
-    // --- END: user implements ---
 }

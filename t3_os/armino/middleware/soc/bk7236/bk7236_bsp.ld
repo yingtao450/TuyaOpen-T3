@@ -469,11 +469,11 @@ SECTIONS
         *(".data.*")
         *(.sdata)
 
-	/* Modified by TUYA Start */
+        /* Modified by TUYA Start */
         *(*ts2.data)
         *(*ts2.data.*)
         *(*ts2.sdata)
-	/* Modified by TUYA End */
+        /* Modified by TUYA End */
 
         *(.video_spec_data*)
         *(.gnu.linkonce.d*)
@@ -505,10 +505,10 @@ SECTIONS
         *(.bss*)
         *(COMMON)
 
-	/* Modified by TUYA Start */
+        /* Modified by TUYA Start */
         *(*ts2.bss)
         *(*ts2.bss.*)
-	/* Modified by TUYA End */
+        /* Modified by TUYA End */
 
 #if CONFIG_CACHE_ENABLE
         . = ALIGN(4);
@@ -618,14 +618,14 @@ SECTIONS
         . = ALIGN(4);
         __video_cache_bss_end__ = .;
     } > PSRAM
-    
+
 /*Modified by TUYA Start*/
 /***********************************************************************/
     .ty_null_text_section :
     {
 
     } > FLASH
-    
+
     PROVIDE(__ty_null_text_section = LOADADDR(.ty_null_text_section));
     . = __ty_null_text_section + SIZEOF(.ty_null_text_section);
     . = ALIGN(0x8);

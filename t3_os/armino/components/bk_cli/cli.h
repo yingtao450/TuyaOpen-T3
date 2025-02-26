@@ -69,8 +69,11 @@ int cli_ble_init(void);
 int cli_netif_init(void);
 int cli_misc_init(void);
 int cli_mem_init(void);
+int cli_fpb_init(void);
+int cli_dwt_init(void);
 int cli_airkiss_init(void);
 int cli_phy_init(void);
+
 #if CONFIG_LWIP
 int cli_lwip_init(void);
 #endif

@@ -729,13 +729,27 @@ CONFIG_LWIP_MEM_TRX_DYNAMIC_EN=y
 # CONFIG_LWIP_MEM_LIBC_MALLOC is not set
 CONFIG_LWIP_MEMP_STATS=y
 CONFIG_LWIP_MEM_STATS=y
+# must be y in dtim10,can be y in dtim1
+CONFIG_STATIC_IP_FOR_GATEWAY=y
+# must be y in dtim10,can be y in dtim1
+CONFIG_TUYA_DTIM10_LWIP=y
+# must be y in dtim10, must be n in dtim1
+CONFIG_WIFI_DTIM10_TEMP_DISABLED=y
+# must be y in dtim10,can be y in dtim1
+CONFIG_TCP_TX_WIN_100MS=y
 # end of Modify Lwip Config
 # end of Lwip_intf_v2_1
 
 #
 # Mbedtls
 #
-# CONFIG_MBEDTLS is not set
+CONFIG_MBEDTLS=n
+CONFIG_FULL_MBEDTLS=n
+CONFIG_PSA_MBEDTLS=y
+CONFIG_MBEDTLS_ACCELERATOR=n
+CONFIG_TE200_ENTROPY=y
+CONFIG_TE200_TEST=y
+CONFIG_TRUSTENGINE=n
 # end of Mbedtls
 
 #
@@ -1227,6 +1241,7 @@ CONFIG_ROSC_CALIB_SW=y
 # OTP
 #
 CONFIG_OTP=y
+CONFIG_OTP_SLEEP=y
 # end of OTP
 
 #
