@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # 参数说明：
 # $1 - example name: echo_app_top
 # $2 - example version: 1.0.0
@@ -33,9 +33,44 @@ USER_SW_VER=`echo $APP_VERSION | cut -d'-' -f1`
 APP_PATH=../../example
 
 PYTHON_CMD="python3"
-PIP_CMD="pip3"
-enable_python_env() {
+check_python_install() {
 
+    if command -v python3 >/dev/null; then
+        PYTHON_CMD=python3
+    elif command -v python >/dev/null && python --version | grep -q '^Python 3'; then
+        PYTHON_CMD=python
+    else
+        echo "Python 3 is not installed. Please run: "
+        echo ""
+        echo "$ sudo apt-get install python3 -y"
+        echo ""
+        exit 1
+    fi
+
+    python_version=$(${PYTHON_CMD} --version 2>&1 | cut -d' ' -f2 | cut -d. -f1-2)
+    formatted_version="python${python_version}-venv"
+    echo "Python version: ${python_version}"
+
+    major=$(echo "$python_version" | cut -d. -f1)
+    minor=$(echo "$python_version" | cut -d. -f2)
+
+    if [ "$major" -lt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -lt 8 ]; }; then
+        echo "Error: Current Python version (${python_version}) is less than 3.8, please upgrade"
+        exit 1
+    fi
+
+    if apt list --installed | grep -q "^${formatted_version}/"; then
+        echo "${formatted_version} is installed, continuing with the script..."
+    else
+        echo "python3-venv is not installed. Please run:"
+        echo ""
+        echo "$ sudo apt-get install python3-venv -y"
+        echo ""
+        exit 1
+    fi 
+}
+
+enable_python_env() {
     if [ -z $1 ]; then
         echo "Please input virtual environment name."
         exit 1
@@ -44,17 +79,6 @@ enable_python_env() {
     VIRTUAL_NAME=$1
     SCRIPT_DIR=$PWD
     VIRTUAL_ENV=$SCRIPT_DIR/$VIRTUAL_NAME
-
-    echo "SCRIPT_DIR $VIRTUAL_ENV"
-
-    if command -v python3 &>/dev/null; then
-        PYTHON_CMD=python3
-    elif command -v python &>/dev/null && python --version | grep -q '^Python 3'; then
-        PYTHON_CMD=python
-    else
-        echo "Python 3 is not installed."
-        exit 1
-    fi
 
     if [ ! -d "${VIRTUAL_ENV}" ]; then
         echo "Virtual environment not found. Creating one..."
@@ -65,18 +89,18 @@ enable_python_env() {
     fi
 
     ACTIVATE_SCRIPT=${VIRTUAL_ENV}/bin/activate
-
-    PYTHON_CMD="${VENV_DIR}/bin/python3"
-
-    if [ -f "$ACTIVATE_SCRIPT" ]; then
+    PIP_CMD=${VIRTUAL_ENV}/bin/pip3
+    if [ -f "$ACTIVATE_SCRIPT" ] && [ -f ${PIP_CMD} ]; then
         echo "Activate python virtual environment."
-
-        source ${ACTIVATE_SCRIPT} || { echo "Failed to activate virtual environment."; exit 1; }
-
+        . ${ACTIVATE_SCRIPT} || { echo "Failed to activate virtual environment."; exit 1; }
         ${PIP_CMD} install -r "requirements.txt" || { echo "Failed to install required Python packages."; deactivate; exit 1; }
     else
         echo "Activate script not found."
-        exit 1
+        rm -rf "${VIRTUAL_ENV}"
+        $PYTHON_CMD -m venv "${VIRTUAL_ENV}" || { echo "Failed to create virtual environment."; exit 1; }
+        . ${ACTIVATE_SCRIPT} || { echo "Failed to activate virtual environment."; exit 1; }
+        ${PIP_CMD} install -r "requirements.txt" || { echo "Failed to install required Python packages."; deactivate; exit 1; }
+
     fi
 }
 
@@ -137,6 +161,7 @@ fi
 if [ x$USER_CMD = "xclean" ];then
 	make clean -C ./t3_os/armino/
 	rm -rf ./t3_os/tuya_build
+    rm -rf ./tuya_build_env
 	echo "*************************************************************************"
 	echo "************************CLEAN SUCCESS************************************"
 	echo "*************************************************************************"
