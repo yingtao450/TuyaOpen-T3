@@ -79,7 +79,7 @@ void user_main()
 #endif
 
     /*Create a Demo*/
-    lv_demo_benchmark();
+    lv_demo_widgets();
 
     while (1) {
         lv_timer_handler();
