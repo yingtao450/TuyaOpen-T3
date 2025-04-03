@@ -38,6 +38,8 @@ set(include_dirs
     "include/watchdog"
     "include/wifi"
     "include/wired"
+    "include/display"
+    "src/driver/tkl_display"
     )
 
 string(REPLACE " " ";" TUYA_HEADER_DIR_LIST $ENV{TUYA_HEADER_DIR})
@@ -81,6 +83,9 @@ list(APPEND srcs
 
 file(GLOB_RECURSE utilities_srcs "$ENV{ARMINO_PATH}/../../tuyaos/tuyaos_adapter/include/utilities/src/*.c")
 list(APPEND srcs ${utilities_srcs})
+
+file(GLOB_RECURSE display_srcs "$ENV{ARMINO_PATH}/../../tuyaos/tuyaos_adapter/src/driver/tkl_display/*.c")
+list(APPEND srcs ${display_srcs})
 
 #add incs srcs
 armino_component_register(SRCS "${srcs}" INCLUDE_DIRS "${include_dirs}" REQUIRES bk_common bk_log lwip_intf_v2_1)

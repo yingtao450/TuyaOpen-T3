@@ -31,6 +31,7 @@
 #include "lv_port_indev.h"
 #endif
 
+#include "tuya_lcd_device.h"
 /***********************************************************
 *************************micro define***********************
 ***********************************************************/
@@ -42,7 +43,11 @@
 /***********************************************************
 ***********************variable define**********************
 ***********************************************************/
-
+static TKL_DISP_DEVICE_S sg_display_device = {
+    .device_id = 0,
+    .device_port = TKL_DISP_LCD,
+    .device_info = NULL,
+};
 /***********************************************************
 ***********************function define**********************
 ***********************************************************/
@@ -63,15 +68,18 @@ void user_main()
     /* basic init */
     tal_log_init(TAL_LOG_LEVEL_DEBUG, 4096, (TAL_LOG_OUTPUT_CB)tkl_log_output);
 
+    // register lcd device
+    tuya_lcd_device_register(sg_display_device.device_id);
+
     lv_init();
     lv_tick_set_cb(lv_tick_get_cb);
-    lv_port_disp_init();
+    lv_port_disp_init(&sg_display_device);
 #ifdef LVGL_ENABLE_TOUCH
     lv_port_indev_init();
 #endif
 
     /*Create a Demo*/
-    lv_demo_widgets();
+    lv_demo_benchmark();
 
     while (1) {
         lv_timer_handler();

@@ -1,4 +1,5 @@
 #include "tkl_uart.h"
+#include "tkl_gpio.h"
 
 #include "drv_model_pub.h"
 #include "uart_pub.h"
