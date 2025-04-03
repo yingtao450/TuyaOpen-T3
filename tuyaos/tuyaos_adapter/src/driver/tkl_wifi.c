@@ -223,7 +223,7 @@ static uint8_t _bk_wifi_security_to_ty(wifi_security_t bk_security)
  * @param[out]      num         the num of ar_ary
  * @return  OPRT_OS_ADAPTER_OK: success  Other: fail
  */
-static OPERATE_RET tkl_wifi_all_ap_scan(AP_IF_S **ap_ary, unsigned int *num)
+static OPERATE_RET tkl_wifi_all_ap_scan(AP_IF_S **ap_ary, uint32_t *num)
 {
     AP_IF_S *item;
     AP_IF_S *array = NULL;

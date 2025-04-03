@@ -50,17 +50,17 @@ typedef struct
 {
     TKL_MEDIA_FRAME_TYPE_E frametype;                    // bitrate,kbps
     TKL_MEDIA_CODEC_TYPE_E codectype;                    // codec type
-    CHAR_T    *pbuf;                                     // frame buffer
+    char    *pbuf;                                     // frame buffer
     uint32_t     buf_size;                                 // buffer size
     uint32_t     used_size;                                // used buffer size
     uint32_t     width;                                    // frame width
     uint32_t     height;                                   // frame height
-    UINT64_T   pts;                                      // sdk pts
-    UINT64_T   timestamp;                                // system utc time，unit: ms
+    uint64_t   pts;                                      // sdk pts
+    uint64_t   timestamp;                                // system utc time，unit: ms
     uint32_t seq;                                          // frame sequence number
     uint32_t fragment;                                     // frame sequence's fragment  第几个分包
-    BYTE_T seq_error;                                    // frame sequence is error  这张图片是否错误
-    BYTE_T fragment_is_last;                             // frame sequence's fragment is last fragment
+    uint8_t seq_error;                                    // frame sequence is error  这张图片是否错误
+    uint8_t fragment_is_last;                             // frame sequence's fragment is last fragment
 }TKL_VENC_FRAME_T;                                       // video frame
 
 typedef int (*TKL_VENC_PUT_CB)(TKL_VENC_FRAME_T *pframe);
@@ -101,8 +101,8 @@ typedef struct
 
 typedef struct
 {
-    INT32_T enable;
-    INT32_T is_dls;
+    int32_t enable;
+    int32_t is_dls;
 }TKL_VENC_OSD_T;
 
 typedef enum {
@@ -124,8 +124,8 @@ typedef struct
 
 typedef struct
 {
-    UINT32_T pool_buff_num;
-    UINT32_T pool_buff_size;
+    Uint32_t pool_buff_num;
+    Uint32_t pool_buff_size;
 }TKL_VENC_STREAM_BUFF_T;
 
 typedef enum {
@@ -137,26 +137,26 @@ typedef enum {
 } TKL_VENC_PROFILE_E;
 
 typedef struct {
-    INT32_T bitrate;                                     // 单位kbps
-    INT32_T fps;
-    INT32_T gop;
+    int32_t bitrate;                                     // 单位kbps
+    int32_t fps;
+    int32_t gop;
     TKL_VENC_PROFILE_E profile;
 } TKL_VENC_H264_ATTR_T;
 
 typedef struct {
-    INT32_T bitrate;                                     // 单位kbps
-    INT32_T fps;
-    INT32_T gop;
+    int32_t bitrate;                                     // 单位kbps
+    int32_t fps;
+    int32_t gop;
     TKL_VENC_PROFILE_E profile;
 } TKL_VENC_H265_ATTR_T;
 
 typedef struct {
-    UINT32_T qp;                                         // 编码质量,值越小，编码质量越高 | [0-100]
+    Uint32_t qp;                                         // 编码质量,值越小，编码质量越高 | [0-100]
 } TKL_VENC_JPEG_ATTR_T;
 
 typedef struct {
-    INT32_T width;
-    INT32_T height;
+    int32_t width;
+    int32_t height;
     TKL_MEDIA_CODEC_TYPE_E codectype;
     union {
         TKL_VENC_H264_ATTR_T h264_attr;
@@ -174,7 +174,7 @@ typedef struct {
 *
 * @return OPRT_OK on success. Others on error, please refer to tkl_error_code.h
 */
-OPERATE_RET tkl_venc_init(INT32_T vi_chn, TKL_VENC_CONFIG_T *pconfig, INT32_T count);
+OPERATE_RET tkl_venc_init(int32_t vi_chn, TKL_VENC_CONFIG_T *pconfig, int32_t count);
 
 /**
 * @brief video encode get frame

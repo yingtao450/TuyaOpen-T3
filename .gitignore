@@ -8,3 +8,5 @@ gen_files_list.txt
 .app
 t3_os/tuya_app/config/
 *.build/
+
+*.using_config
