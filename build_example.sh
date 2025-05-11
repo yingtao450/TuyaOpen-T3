@@ -1,22 +1,23 @@
 #!/bin/sh
 # 参数说明：
-# $1 - example name: echo_app_top
-# $2 - example version: 1.0.0
-# $3 - header files directory:
-# $4 - libs directory:
-# $5 - libs: tuyaos tuyaapp
-# $6 - output directory:
+# $1 - params path: echo_app_top
+# $2 - user cmd: build / clean / ...
 
 set -e
 cd `dirname $0`
 
-APP_BIN_NAME=$1
-APP_VERSION=$2
-HEADER_DIR=$3
-LIBS_DIR=$4
-LIBS=$5
-OUTPUT_DIR=$6
-USER_CMD=$7
+BUILD_PARAM_DIR=$1
+BUILD_PARAM_FILE=$BUILD_PARAM_DIR/build_param.config
+. $BUILD_PARAM_FILE
+
+APP_BIN_NAME=$CONFIG_PROJECT_NAME
+APP_VERSION=$CONFIG_PROJECT_VERSION
+HEADER_DIR=$OPEN_HEADER_DIR
+LIBS_DIR=$OPEN_LIBS_DIR
+LIBS=$PLATFORM_NEED_LIBS
+OUTPUT_DIR=$BIN_OUTPUT_DIR
+USER_CMD=$2
+BOARD_NAME=$PLATFORM_BOARD
 TARGET_PLATFORM=bk7236
 
 # echo APP_BIN_NAME=$APP_BIN_NAME
@@ -27,6 +28,7 @@ TARGET_PLATFORM=bk7236
 # echo OUTPUT_DIR=$OUTPUT_DIR
 # echo HEADER_DIR=$HEADER_DIR
 # echo TARGET_PLATFORM=$TARGET_PLATFORM
+# exit 0
 
 USER_SW_VER=`echo $APP_VERSION | cut -d'-' -f1`
 
