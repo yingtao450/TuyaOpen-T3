@@ -5,6 +5,20 @@
  * @copyright Copyright 2020-2021 Tuya Inc. All Rights Reserved.
  *
  */
+#include <driver/gpio.h>
+#include <driver/int.h>
+#include <driver/i2c.h>
+#include "clock_driver.h"
+#include "gpio_driver.h"
+#include "icu_driver.h"
+#include <os/mem.h>
+#include "power_driver.h"
+#include <os/os.h>
+#include "i2c_hw.h"
+#include "i2c_driver.h"
+#include "i2c_hal.h"
+#include "i2c_statis.h"
+#include "sys_driver.h"
 
 #include "tkl_gpio.h"
 #include "tal_log.h"
@@ -16,6 +30,7 @@
 #define I2C_WRITE           0
 #define I2C_READ            1
 
+#if 0
 #define I2C_SCL_INIT()      __sw_i2c_scl_init(i2c_pin.scl)
 #define I2C_SCL_H()         __sw_i2c_write(i2c_pin.scl, TUYA_GPIO_LEVEL_HIGH)
 #define I2C_SCL_L()         __sw_i2c_write(i2c_pin.scl, TUYA_GPIO_LEVEL_LOW)
@@ -26,6 +41,40 @@
 
 #define I2C_SDA_INIT_IN()   __sw_i2c_sda_init(i2c_pin.sda, TRUE)
 #define I2C_SDA_READ()      __sw_i2c_sda_read(i2c_pin.sda)
+#endif
+
+#define GPIO_OUTPUT_HIGH		0x2
+#define GPIO_OUTPUT_LOW			0x0
+
+#define I2C_SCL_INIT()      __sw_i2c_scl_init(i2c_pin.scl)
+#define I2C_SCL_H() do { \
+                    *((volatile unsigned long *) (SOC_AON_GPIO_REG_BASE+(i2c_pin.scl)*4)) = GPIO_OUTPUT_HIGH; \
+                } while(0)
+
+#define I2C_SCL_L() do { \
+                    *((volatile unsigned long *) (SOC_AON_GPIO_REG_BASE+(i2c_pin.scl)*4)) = GPIO_OUTPUT_LOW; \
+                } while(0)
+
+#define I2C_SDA_INIT_OUT()  do { \
+                    *((volatile unsigned long *) (SOC_AON_GPIO_REG_BASE+(i2c_pin.sda)*4)) = GPIO_OUTPUT_HIGH; \
+                } while(0)
+
+#define I2C_SDA_H() do { \
+                    *((volatile unsigned long *) (SOC_AON_GPIO_REG_BASE+(i2c_pin.sda)*4)) = GPIO_OUTPUT_HIGH; \
+                } while(0)
+
+#define I2C_SDA_L() do { \
+                    *((volatile unsigned long *) (SOC_AON_GPIO_REG_BASE+(i2c_pin.sda)*4)) = GPIO_OUTPUT_LOW; \
+                } while(0)
+
+
+#define I2C_SDA_INIT_IN() do { \
+                    bk_gpio_disable_output(i2c_pin.sda); \
+                    bk_gpio_enable_input(i2c_pin.sda); \
+                } while(0)
+
+#define I2C_SDA_READ() (uint8_t)(bk_gpio_get_input(i2c_pin.sda))
+
 
 #define I2C_DELAY(us) \
 do { \
@@ -88,7 +137,7 @@ static void __sw_i2c_scl_init(TUYA_GPIO_NUM_E pin)
     TUYA_GPIO_BASE_CFG_T pin_cfg = {
         .mode = TUYA_GPIO_PUSH_PULL,
         .direct = TUYA_GPIO_OUTPUT,
-        .level = TUYA_GPIO_LEVEL_LOW
+        .level = TUYA_GPIO_LEVEL_HIGH
     };
     tkl_gpio_init(pin, &pin_cfg);
 }
@@ -236,12 +285,12 @@ static BOOL_T __sw_i2c_get_ack(SR_I2C_GPIO_T i2c_pin)
     I2C_DELAY(1);
 
     while (I2C_SDA_READ()) {
-        if (timeout_count >= delay_us) {
+        if (timeout_count >= 500000) {
             __sw_i2c_stop(i2c_pin);
-            bk_printf("wait ack timeout\n");
+            bk_printf("wait ack timeout %d\r\n", I2C_SDA_READ());
             return FALSE;
         }
-        I2C_DELAY(1);
+        I2C_DELAY(10);
         timeout_count++;
     }
 
@@ -331,9 +380,8 @@ static uint8_t __sw_i2c_read_byte(SR_I2C_GPIO_T i2c_pin, BOOL_T need_ack)
 static int __sw_i2c_write_data(uint8_t port, uint16_t addr, const uint8_t *buf, uint8_t len, BOOL_T xfer_pending)
 {
     __sw_i2c_start(sg_i2c_pin[port]);
-    
-    __sw_i2c_send_byte(sg_i2c_pin[port], (addr << 1) | I2C_WRITE);
 
+    __sw_i2c_send_byte(sg_i2c_pin[port], (addr << 1) | I2C_WRITE);
     if (!__sw_i2c_get_ack(sg_i2c_pin[port])) {
         __sw_i2c_stop(sg_i2c_pin[port]);
         return -1;
@@ -450,6 +498,10 @@ OPERATE_RET tkl_i2c_init(uint8_t port, const TUYA_IIC_BASE_CFG_T *cfg)
 {
     if (port >= TUYA_I2C_NUM_MAX) {
         return OPRT_INVALID_PARM;
+    }
+
+    if ((port == 0) || (port == 1)) {
+        bk_printf("check i2c pin whether used by other function.\n");
     }
 
     if ((sg_i2c_pin[port].scl == TUYA_GPIO_NUM_MAX) || (sg_i2c_pin[port].sda == TUYA_GPIO_NUM_MAX)) {
@@ -634,19 +686,19 @@ OPERATE_RET tkl_i2c_slave_receive(TUYA_I2C_NUM_E port, void *data, uint32_t size
 
 /**
  * @brief IIC get status.
- * 
+ *
  * @param[in] port: i2c port
  * @param[out]  TUYA_IIC_STATUS_T
  * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
  */
 OPERATE_RET tkl_i2c_get_status(TUYA_I2C_NUM_E port, TUYA_IIC_STATUS_T *status)
 {
-    return OPRT_NOT_SUPPORTED; 
+    return OPRT_NOT_SUPPORTED;
 }
 
 /**
  * @brief i2c's reset
- * 
+ *
  * @param[in] port: i2c port number
  *
  * @return OPRT_OK on success. Others on error, please refer to tuya_error_code.h
@@ -658,10 +710,10 @@ OPERATE_RET  tkl_i2c_reset(TUYA_I2C_NUM_E port)
 
 /**
  * @brief i2c transferred data count.
- * 
+ *
  * @param[in] port: i2c port id, id index starts at 0
  *
- * @return >=0,number of currently transferred data items. <0,err. 
+ * @return >=0,number of currently transferred data items. <0,err.
  * tkl_i2c_master_send:number of data bytes transmitted and acknowledged
  * tkl_i2c_master_receive:number of data bytes received
  * tkl_i2c_slave_send:number of data bytes transmitted
@@ -669,7 +721,7 @@ OPERATE_RET  tkl_i2c_reset(TUYA_I2C_NUM_E port)
  */
 int32_t tkl_i2c_get_data_count(TUYA_I2C_NUM_E port)
 {
-    return OPRT_NOT_SUPPORTED; 
+    return OPRT_NOT_SUPPORTED;
 }
 
 /**
@@ -681,5 +733,5 @@ int32_t tkl_i2c_get_data_count(TUYA_I2C_NUM_E port)
  */
 OPERATE_RET tkl_i2c_ioctl(TUYA_I2C_NUM_E port, uint32_t cmd,  void *args)
 {
-    return OPRT_NOT_SUPPORTED; 
+    return OPRT_NOT_SUPPORTED;
 }

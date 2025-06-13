@@ -186,8 +186,8 @@ typedef struct
     char ip[16];    /* ip addr:  xxx.xxx.xxx.xxx  */
     char mask[16];  /* net mask: xxx.xxx.xxx.xxx  */
     char gw[16];    /* gateway:  xxx.xxx.xxx.xxx  */
-    char dns[16];   /* dns server */
-    BOOL_T dhcpen;  /* is dhcp enable */
+    char dns[16];    /* dns server:  xxx.xxx.xxx.xxx  */
+    BOOL_T dhcpen;  /* enable dhcp or not */
 } NW_IP_S;
 /* tuyaos definition of IP addr */
 typedef uint32_t TUYA_IP_ADDR_T;
@@ -973,6 +973,74 @@ typedef struct {
 } TUYA_SPI_STATUS_T;
 
 /**
+ * @brief qspi port
+ *
+ */
+typedef enum {
+    TUYA_QSPI_NUM_0,		    // SPI 0
+    TUYA_QSPI_NUM_1,		    // SPI 1
+    TUYA_QSPI_NUM_MAX,
+} TUYA_QSPI_NUM_E;
+
+typedef enum {
+	TUYA_QSPI_READ = 0, /**< QSPI read operation */
+	TUYA_QSPI_WRITE,    /**< QSPI write operation */
+} TUYA_QSPI_OP_E;
+
+typedef enum {
+	TUYA_QSPI_1WIRE = 0, /**< QSPI 1_wire mode, standard SPI */
+	TUYA_QSPI_2WIRE,     /**< QSPI 2_wire mode, DUAL SPI */
+	TUYA_QSPI_4WIRE,     /**< QSPI 4_wire mode, QUAD SPI */
+} TUYA_QSPI_WIRE_MODE_E;
+
+typedef struct {
+    TUYA_QSPI_OP_E op;        /**< QSPI operation */
+	uint32_t cmd;               /**< QSPI command */
+	uint32_t addr;              /**< QSPI address */
+	uint32_t addr_size;               /**< QSPI address len */
+	uint32_t dummy_cycle;       /**< QSPI dummy cycle */
+	uint32_t data_len;          /**< QSPI data length */
+	TUYA_QSPI_WIRE_MODE_E cmd_lines;               /**< QSPI command lines */
+	TUYA_QSPI_WIRE_MODE_E addr_lines;               /**< QSPI address lines */
+	TUYA_QSPI_WIRE_MODE_E data_lines;               /**< QSPI data lines */
+} TUYA_QSPI_CMD_T;
+
+typedef enum {
+    TUYA_QSPI_MODE0  = 0,    // CPOL = 0, CPHA = 0
+    TUYA_QSPI_MODE1  = 1,    // CPOL = 0, CPHA = 1
+    TUYA_QSPI_MODE2  = 2,    // CPOL = 1, CPHA = 0
+    TUYA_QSPI_MODE3  = 3     // CPOL = 1, CPHA = 1
+} TUYA_QSPI_MODE_E;
+
+typedef enum {
+    TUYA_QSPI_ROLE_MASTER,             ///< SPI Master (Output on MOSI, Input on MISO); arg = Bus Speed in bps
+    TUYA_QSPI_ROLE_SLAVE,              ///< SPI Slave  (Output on MISO, Input on MOSI)
+} TUYA_QSPI_ROLE_E;
+
+/**
+ * @brief qspi config
+ *
+ */
+typedef struct {
+    TUYA_QSPI_ROLE_E      role; /** QSPI Master / Slave */
+    TUYA_QSPI_MODE_E      mode;
+	uint32_t baudrate;       /**< QSPI controller clock divide number */
+	uint32_t is_dma;       /**< QSPI dma mode*/
+} TUYA_QSPI_BASE_CFG_T;
+
+/****** QSPI Event *****/
+typedef enum {
+    TUYA_QSPI_EVENT_TX = 0,   ///< Data Transfer completed. tkl_spi_transfer to indicate that all the data has been transferred. The driver is ready for the next transfer operation
+    TUYA_QSPI_EVENT_RX,             ///< Data Transfer completed. Occurs after call tkl_spi_receive to indicate that all the data has been transferred. The driver is ready for the next transfer operation
+}TUYA_QSPI_IRQ_EVT_E;
+
+/**
+ * @brief spi cb,used in irq mode
+ *
+ */
+typedef void (*TUYA_QSPI_IRQ_CB)(TUYA_QSPI_NUM_E port, TUYA_QSPI_IRQ_EVT_E event);
+
+/**
  * @brief i2s message struct
  * 
  */
@@ -983,6 +1051,7 @@ typedef struct {
 typedef enum {
     TUYA_I2S_NUM_0 = 0,                 /*!< I2S port 0 */
     TUYA_I2S_NUM_1 = 1,                 /*!< I2S port 1 */
+    TUYA_I2S_NUM_2 = 2,                 /*!< I2S port 1 */
     TUYA_I2S_NUM_MAX,                   /*!< I2S port max */
 } TUYA_I2S_NUM_E;
 
@@ -1231,7 +1300,7 @@ typedef struct {
 
 /**
  * @brief uart irq callback
- * 
+ *
  * @param[in] port_id: uart port id
  *                     the high 16bit - uart type
  *                                      it's value must be one of the TUYA_UART_TYPE_E type
@@ -1254,10 +1323,106 @@ typedef enum{
     TUYA_UART_MAX_CMD = 1000
 }TUYA_UART_IOCTL_CMD_E;
 
-
 typedef struct {
     uint32_t interval_ms;
 } TUYA_WDOG_BASE_CFG_T;
+
+typedef enum  {
+    TUYA_DISPLAY_RGB = 0,
+    TUYA_DISPLAY_8080,
+    TUYA_DISPLAY_QSPI,
+    TUYA_DISPLAY_SPI,
+}TUYA_DISPLAY_TYPE_E;
+
+typedef enum{
+    TUYA_DISPLAY_ROTATION_0,
+    TUYA_DISPLAY_ROTATION_90,
+    TUYA_DISPLAY_ROTATION_180,
+    TUYA_DISPLAY_ROTATION_270,
+}TUYA_DISPLAY_ROTATION_E;
+
+typedef struct {
+    TUYA_GPIO_NUM_E   pin;
+    TUYA_GPIO_LEVEL_E active_level;
+} TUYA_DISPLAY_IO_CTRL_T;
+
+typedef struct {
+    TUYA_PWM_NUM_E       id;
+    TUYA_PWM_BASE_CFG_T  cfg;
+} TUYA_DISPLAY_PWM_CTRL_T;
+
+typedef enum  {
+    TUYA_DISP_BL_TP_NONE,
+    TUYA_DISP_BL_TP_GPIO,
+    TUYA_DISP_BL_TP_PWM,
+}TUYA_DISPLAY_BL_TYPE_E;
+
+typedef struct {
+    TUYA_DISPLAY_BL_TYPE_E    type;
+    union {
+        TUYA_DISPLAY_IO_CTRL_T   gpio;
+        TUYA_DISPLAY_PWM_CTRL_T  pwm;
+    };
+} TUYA_DISPLAY_BL_CTRL_T;
+
+typedef enum  {
+    TUYA_DISP_INIT_RST = 0,
+    TUYA_DISP_INIT_REG,
+    TUYA_DISP_INIT_DELAY,
+    TUYA_DISP_INIT_CONF_END
+}TUYA_DISPLAY_INIT_TYPE_E;
+
+typedef struct {
+    uint8_t r;
+    uint8_t len;
+    uint8_t v[62];
+} TUYA_DISP_REG_DATA_T;
+
+typedef struct {
+    uint16_t delay;
+} TUYA_DISPLAY_RESET_DATA_T;
+
+typedef struct {
+    TUYA_DISPLAY_INIT_TYPE_E type;
+    union {
+        uint32_t delay_time;
+        TUYA_DISP_REG_DATA_T reg;
+        TUYA_DISPLAY_RESET_DATA_T reset[3];
+    };
+} TUYA_DISPLAY_INIT_SEQ_T;
+
+typedef enum {
+	TUYA_PIXEL_FMT_RGB565,  
+    TUYA_PIXEL_FMT_RGB666,  
+	TUYA_PIXEL_FMT_RGB888,
+} TUYA_DISPLAY_PIXEL_FMT_E;
+
+typedef enum {
+    TUYA_RGB_DATA_IN_FALLING_EDGE = 0,
+    TUYA_RGB_DATA_IN_RISING_EDGE,
+}TUYA_RGB_DATA_CLK_EDGE_E;
+
+typedef struct {
+    uint16_t                 width;
+    uint16_t                 height;
+	TUYA_DISPLAY_PIXEL_FMT_E pixel_fmt;
+    uint32_t                 clk;
+    TUYA_RGB_DATA_CLK_EDGE_E out_data_clk_edge;  /** rgb data output in clk rising or falling */
+    uint16_t                 hsync_back_porch;   /**< rang 0~0x3FF (0~1023), should refer rgb device spec*/
+	uint16_t                 hsync_front_porch;  /**< rang 0~0x3FF (0~1023), should refer rgb device spec*/
+	uint16_t                 vsync_back_porch;   /**< rang 0~0xFF (0~255), should refer rgb device spec*/
+	uint16_t                 vsync_front_porch;  /**< rang 0~0xFF (0~255), should refer rgb device spec*/
+	uint8_t                  hsync_pulse_width;  /**< rang 0~0x3F (0~7), should refer rgbdevice spec*/
+	uint8_t                  vsync_pulse_width;  /**< rang 0~0x3F (0~7), should refer rgb device spec*/
+} TUYA_RGB_BASE_CFG_T;
+
+typedef struct {
+    uint16_t                 width;
+    uint16_t                 height;
+    TUYA_DISPLAY_PIXEL_FMT_E pixel_fmt;
+    uint32_t                 clk;
+    uint8_t                  data_bits;// 8,9,16,18,24
+} TUYA_8080_BASE_CFG_T;
 
 /**
  * @brief timer num
@@ -1390,6 +1555,12 @@ typedef enum {
     TRANS_SEND = 1,
 }TUYA_TRANS_TYPE_E;
 
+typedef enum {
+    TUYA_NETIF_STA_IDX = 0,
+    TUYA_NETIF_AP_IDX,
+    TUYA_NETIF_ETH_IDX,
+    TUYA_NETIF_NUM
+} TUYA_NETIF_TYPE_E;
 
 /* tuyaos definition of IP addr */
 typedef uint32_t TUYA_IP_ADDR_T;
@@ -1442,6 +1613,11 @@ typedef int TUYA_ERRNO;
 #define TKL_THREAD_PRI_LOW          1
 #define TKL_THREAD_PRI_LOWEST       0
 
+/* MTD 接口类型枚举 */
+typedef enum {
+    MTD_IF_SPI,        // 标准SPI接口
+    MTD_IF_QSPI,       // Quad-SPI接口
+} MTD_INTERFACE_E;
 #ifdef __cplusplus
 }
 #endif
